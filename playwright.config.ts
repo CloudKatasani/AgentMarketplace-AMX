@@ -1,6 +1,15 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 import { defineConfig, devices } from "@playwright/test";
+
+function chromiumPath(): string | undefined {
+  const candidates = [
+    process.env.PLAYWRIGHT_CHROMIUM,
+    "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  return candidates.find((candidate) => existsSync(candidate));
+}
 
 /**
  * End-to-end tests against a real build.
@@ -30,10 +39,9 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        launchOptions: {
-          executablePath:
-            process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
-        },
+        // Use a pinned Chromium when one is present (the sandbox image ships
+        // one), and Playwright's own download everywhere else — CI installs it.
+        launchOptions: { executablePath: chromiumPath() },
       },
     },
   ],

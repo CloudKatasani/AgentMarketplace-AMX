@@ -19,6 +19,7 @@
     "seed:showcase": "tsx prisma/seed.ts --showcase-only",
     "postinstall": "prisma generate",
     "pack:validate": "tsx scripts/validate-packs.ts",
+    "perf": "tsx scripts/perf-sanity.ts",
     "verify": "pnpm typecheck && pnpm lint && pnpm pack:validate && pnpm test && pnpm build",
     "test:e2e": "pnpm build && playwright test",
     "test:e2e:nobuild": "playwright test"

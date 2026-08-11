@@ -347,13 +347,17 @@ async function main(): Promise<void> {
     sealReadOnly: true,
     users,
   });
-  await seedUtilityTenant({
-    name: "Northwind Utility (sandbox)",
-    slug: SANDBOX_SLUG,
-    isShowcase: false,
-    sealReadOnly: false,
-    users,
-  });
+  // The writable twin the demo's breaking-change moment is performed in. Skipped
+  // by --showcase-only, for a deployment that should only ever be browsed.
+  if (!showcaseOnly) {
+    await seedUtilityTenant({
+      name: "Northwind Utility (sandbox)",
+      slug: SANDBOX_SLUG,
+      isShowcase: false,
+      sealReadOnly: false,
+      users,
+    });
+  }
 
   if (!showcaseOnly) {
     console.info("\nDemo sign-in:");
