@@ -6,12 +6,13 @@ human approved it.
 `CLAUDE.md` is binding for work in this repository. `PROMPT.md` holds the phase plan,
 `PITCH.md` the positioning, `SKILLS.md` the skill register.
 
-**Status: Phase 6 complete** — the full eight-stage lifecycle, the marketplace, signed evidence
+**Status: Phase 7 complete** — the full eight-stage lifecycle, the marketplace, signed evidence
 packs, demo mode protected by a test, nine industry packs, the Academy with credential-gated
 approver roles, the full export set, a Stripe-shaped billing adapter, propose-only AI assist,
-the hardening pass (21 Playwright tests against a production build, a performance tripwire at
-~50 tenants, fourteen ADRs, `DEMO.md`), and the multi-player gaps: invitations, the workspace
-settings screen, and white-label theming.
+the hardening pass (a performance tripwire at ~50 tenants, sixteen ADRs, `DEMO.md`), the
+multi-player gaps (invitations, workspace settings, white-label theming), and the Enterprise
+surface: a read-only API with hashed tokens, optional OIDC sign-in, and a WCAG 2.1 AA sweep —
+224 unit tests and 30 Playwright tests against a production build.
 
 ---
 
@@ -67,6 +68,9 @@ needed — every enum is a `String` column whose domain lives in `src/lib/enums.
     submitted — a real peer approval, badged differently from a self-attestation.
 13. **Rebrand a workspace** on Enterprise by overriding design tokens; anything that is not a
     colour is refused in plain language.
+14. **Read the catalogue from your own systems** with an Enterprise API token — agents with
+    their certification and drift, data products with their dependants, and the audit chain.
+    Read-only: there are no write endpoints, because a bearer token is not a person.
 
 ## Commands
 
@@ -75,14 +79,15 @@ needed — every enum is a `String` column whose domain lives in `src/lib/enums.
 | `pnpm dev` | Development server |
 | `pnpm typecheck` | `tsc --noEmit`, strict |
 | `pnpm lint` | ESLint, including the no-hard-coded-colour rule |
-| `pnpm test` | Vitest against a real SQLite database (212 tests) |
-| `pnpm test:e2e` | Build, then Playwright against the production build (21 tests) |
+| `pnpm test` | Vitest against a real SQLite database (224 tests) |
+| `pnpm test:e2e` | Build, then Playwright against the production build (30 tests) |
 | `pnpm build` | Production build |
 | `pnpm seed` | Reference data + showcase tenant and its sandbox twin (idempotent) |
 | `pnpm seed:showcase` | Read-only showcase tenant only, without the writable twin |
 | `pnpm pack:validate` | Validate every industry pack (runs in CI) |
 | `pnpm perf` | Performance tripwire: ~50 tenants, then times the heaviest screens |
-| `pnpm verify` | typecheck + lint + packs + tests + build |
+| `pnpm check:postgres` | Renders the schema on PostgreSQL; fails on SQLite-only drift |
+| `pnpm verify` | typecheck + lint + packs + Postgres check + tests + build |
 
 ## How it is put together
 
@@ -137,5 +142,8 @@ assist. `docs/phase-5-design.md` covers the hardening pass and what it found.
 `docs/phase-6-design.md` covers the multi-player gaps — invitations, the settings screen, and
 white-label — and is candid about what was missing and why it mattered.
 
-`docs/adr/` holds fourteen architecture decision records — the decisions a reader would otherwise
+`docs/phase-7-design.md` covers the API, the accessibility sweep and what it found in the design
+system, optional OIDC sign-in, and how far the Postgres claim is actually proven.
+
+`docs/adr/` holds sixteen architecture decision records — the decisions a reader would otherwise
 have to reconstruct from the code, each with what was rejected and what it costs.

@@ -12,8 +12,11 @@
 import { compare, hash } from "bcryptjs";
 import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
+
+import { ssoProviders, SSO_PROVIDER_ID } from "./sso";
 
 declare module "next-auth" {
   interface Session {
@@ -73,10 +76,43 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return { id: user.id, email: user.email, name: user.name };
       },
     }),
+    // Present only when this deployment configures an identity provider.
+    ...ssoProviders(),
   ],
   callbacks: {
-    jwt({ token, user }) {
+    /**
+     * SSO authenticates; it never authorises.
+     *
+     * A person who signs in through an identity provider must already have an
+     * AMX account with that verified address. They join a workspace by
+     * accepting an invitation, and roles are granted by an org-admin — so a
+     * buyer's directory cannot mint approvers inside AMX by adding a user to a
+     * group.
+     */
+    async signIn({ account, profile }) {
+      if (account?.provider !== SSO_PROVIDER_ID) return true;
+
+      const email = profile?.email?.toLowerCase();
+      if (!email || profile?.email_verified === false) return false;
+
+      const user = await authDb.user.findUnique({
+        where: { email },
+        select: { id: true, archivedAt: true },
+      });
+      return Boolean(user && !user.archivedAt);
+    },
+    async jwt({ token, user, account, profile }) {
       if (user?.id) token.sub = user.id;
+
+      // The OIDC path yields a provider-side id; map it to the AMX user, whose
+      // id is what every tenant-scoped check in the product is written against.
+      if (account?.provider === SSO_PROVIDER_ID && profile?.email) {
+        const known = await authDb.user.findUnique({
+          where: { email: profile.email.toLowerCase() },
+          select: { id: true },
+        });
+        if (known) token.sub = known.id;
+      }
       return token;
     },
     session({ session, token }) {

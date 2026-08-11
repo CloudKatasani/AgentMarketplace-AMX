@@ -24,3 +24,5 @@ legible now.
 | [0012](0012-sqlite-in-development-postgres-in-production.md) | SQLite in development, Postgres in production | Accepted |
 | [0013](0013-invitations-and-the-second-human.md) | An invitation is a single-use token, and the only way into a workspace | Accepted |
 | [0014](0014-theme-override-is-data.md) | A tenant's theme override is validated data, never a stylesheet | Accepted |
+| [0015](0015-a-read-only-api-with-hashed-tokens.md) | The API is read-only, and its tokens are stored as hashes | Accepted |
+| [0016](0016-sso-authenticates-it-never-authorises.md) | SSO authenticates; it never authorises | Accepted |

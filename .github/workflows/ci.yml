@@ -35,7 +35,7 @@ jobs:
 
       - run: pnpm prisma migrate deploy
 
-      # typecheck + lint + pack validation + vitest + build, in that order.
+      # typecheck + lint + packs + Postgres schema check + vitest + build.
       - run: pnpm verify
 
   e2e:

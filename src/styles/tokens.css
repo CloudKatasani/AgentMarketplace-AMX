@@ -31,7 +31,12 @@
 
   /* ── Neutrals derived from the ink, so borders stay in-family ── */
   --border: 205 221 235;           /* #CDDDEB  hairlines, table rules, input borders */
-  --muted: 91 122 148;             /* #5B7A94  secondary text, metadata */
+  --muted: 76 102 124;             /* #4C667C  secondary text, metadata.
+                                      Darkened from #5B7A94 in Phase 7: the old
+                                      value cleared 4.5:1 on white but not on
+                                      --panel (4.0) or --band (3.7), which is
+                                      where most muted text actually sits. Now
+                                      6.0 / 5.4 / 4.9. */
 
   /* ── Typography ───────────────────────────────────────────────── */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;

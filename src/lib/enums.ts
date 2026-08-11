@@ -195,6 +195,8 @@ export const AUDIT_EVENT_TYPES = enumOf([
   "member.role-revoked",
   "policy.credential-requirement-changed",
   "theme.changed",
+  "api-token.issued",
+  "api-token.revoked",
   "agent.created",
   "artifact.committed",
   "binding.validated",

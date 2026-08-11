@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/app/(app)/agents/[id]/actions";
 import { requireSessionContext } from "@/lib/auth/session-context";
 import { withOrg } from "@/lib/db/scope";
+import { issueApiToken, revokeApiToken } from "@/lib/api/tokens";
 import { createInvitation, revokeInvitation } from "@/lib/organizations/invitations";
 import {
   setCredentialPolicy,
@@ -131,5 +132,49 @@ export async function saveThemeAction(
   );
 
   revalidatePath("/", "layout");
+  return { ok: result.ok, message: result.detail };
+}
+
+export async function issueApiTokenAction(
+  _previous: ActionState | undefined,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireSessionContext();
+
+  const result = await withOrg(session.organizationId, (db) =>
+    issueApiToken(db, {
+      organizationId: session.organizationId,
+      actorUserId: session.userId,
+      name: String(formData.get("name") ?? ""),
+      planTier: session.planTier as PlanTier,
+    }),
+  );
+
+  if (!result.ok) return { ok: false, message: result.detail };
+
+  revalidatePath("/admin");
+  // Shown once. There is no second chance to read it, and the message says so
+  // rather than letting someone discover it later.
+  return {
+    ok: true,
+    message: `Copy this now — it is not stored and cannot be shown again: ${result.issued.token}`,
+  };
+}
+
+export async function revokeApiTokenAction(
+  _previous: ActionState | undefined,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireSessionContext();
+
+  const result = await withOrg(session.organizationId, (db) =>
+    revokeApiToken(db, {
+      organizationId: session.organizationId,
+      actorUserId: session.userId,
+      tokenId: String(formData.get("tokenId") ?? ""),
+    }),
+  );
+
+  revalidatePath("/admin");
   return { ok: result.ok, message: result.detail };
 }

@@ -2,7 +2,7 @@
   "name": "amx",
   "version": "0.1.0",
   "private": true,
-  "description": "AMX \u2014 the certification and distribution layer for enterprise AI agents",
+  "description": "AMX — the certification and distribution layer for enterprise AI agents",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
@@ -20,7 +20,8 @@
     "postinstall": "prisma generate",
     "pack:validate": "tsx scripts/validate-packs.ts",
     "perf": "tsx scripts/perf-sanity.ts",
-    "verify": "pnpm typecheck && pnpm lint && pnpm pack:validate && pnpm test && pnpm build",
+    "check:postgres": "tsx scripts/check-postgres.ts",
+    "verify": "pnpm typecheck && pnpm lint && pnpm pack:validate && pnpm check:postgres && pnpm test && pnpm build",
     "test:e2e": "pnpm build && playwright test",
     "test:e2e:nobuild": "playwright test"
   },
@@ -57,6 +58,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.62.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.5",

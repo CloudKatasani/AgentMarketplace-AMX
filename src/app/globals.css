@@ -25,8 +25,28 @@
     text-wrap: balance;
   }
 
+  /*
+   * Links are underlined by default, and only opt out where the surrounding
+   * shape already makes them unmistakable (nav items, buttons, cards). Colour
+   * alone is not a distinction for a reader who cannot see the colour — WCAG
+   * 1.4.1, and axe flags it in `link-in-text-block`.
+   */
   a {
     color: rgb(var(--brand-primary));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /*
+   * On a tinted surface the primary blue drops to 4.4:1, which is under AA.
+   * The depth colour is 6.1:1 on the same tint and is already the palette's
+   * pressed state, so links inherit it wherever the background is not white.
+   *
+   * `:where()` keeps the selector at zero specificity, so a link that sets its
+   * own colour — a call-to-action styled as a button, say — still wins.
+   */
+  :where(.bg-band, .bg-panel, .bg-warning-tint) a {
+    color: rgb(var(--brand-deep));
   }
 
   /* Focus rings use the accent, everywhere, without per-component work. */

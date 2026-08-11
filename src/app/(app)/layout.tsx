@@ -87,12 +87,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 </button>
               </form>
             ) : (
-              <span className="text-surface/90">{session.organizationName}</span>
+              <span className="text-surface">{session.organizationName}</span>
             )}
             <span className="rounded bg-brand-deep px-2 py-0.5 text-xs uppercase tracking-wide">
               {session.planTier}
             </span>
-            <span className="text-surface/70">{session.userName || session.userEmail}</span>
+            {/* Full-opacity white: at 70% this failed AA against the brand band,
+                and "de-emphasised" is not worth an unreadable name. */}
+            <span className="text-surface">{session.userName || session.userEmail}</span>
           </div>
         </div>
       </header>

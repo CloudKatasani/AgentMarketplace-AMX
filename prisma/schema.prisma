@@ -828,3 +828,27 @@ model AnalyticsEvent {
 
   @@index([organizationId, name])
 }
+
+// ═════════════════════════════ API access ══════════════════════════════
+
+/// A bearer token for the read-only Enterprise API.
+///
+/// Only the hash is stored: a token is shown to its creator once and is
+/// unrecoverable afterwards, exactly like a password. `prefix` is the first
+/// few characters, kept in clear so a person can tell two tokens apart in the
+/// list without the product having to remember either of them.
+model ApiToken {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  /// SHA-256 of the token. Never the token itself.
+  tokenHash      String    @unique
+  prefix         String
+  createdByUserId String?
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([organizationId])
+}

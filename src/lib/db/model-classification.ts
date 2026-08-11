@@ -65,6 +65,7 @@ export const TENANT_SCOPED_MODELS = new Set([
   "ModuleCompletion",
   "Credential",
   "AnalyticsEvent",
+  "ApiToken",
 ]);
 
 export function isGlobalModel(model: string | undefined): boolean {

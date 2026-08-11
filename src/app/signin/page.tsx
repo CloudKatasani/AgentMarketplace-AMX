@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, PageTitle, Muted, Panel } from "@/components/ui/primitives";
 import { getSessionContext } from "@/lib/auth/session-context";
 import { signIn } from "@/lib/auth";
+import { ssoConfig, SSO_PROVIDER_ID } from "@/lib/auth/sso";
 
 export default async function SignInPage({
   searchParams,
@@ -16,6 +17,14 @@ export default async function SignInPage({
   if (session) redirect("/agents");
 
   const params = await searchParams;
+  // Rendered only when this deployment has an identity provider configured, so
+  // the screen never offers a door that is not there.
+  const sso = ssoConfig();
+
+  async function startSso() {
+    "use server";
+    await signIn(SSO_PROVIDER_ID, { redirectTo: "/agents" });
+  }
 
   async function authenticate(formData: FormData) {
     "use server";
@@ -74,6 +83,18 @@ export default async function SignInPage({
               Sign in
             </Button>
           </form>
+
+          {sso ? (
+            <form action={startSso} className="mt-4 border-t border-border pt-4">
+              <Button type="submit" variant="outline" className="w-full">
+                Continue with {sso.label}
+              </Button>
+              <Muted className="mt-2">
+                Signing in this way proves who you are. Joining a workspace still happens through
+                an invitation, and roles are still granted by an admin.
+              </Muted>
+            </form>
+          ) : null}
         </Panel>
 
         <p className="mt-4 text-muted">

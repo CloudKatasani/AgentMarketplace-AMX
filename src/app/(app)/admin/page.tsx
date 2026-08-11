@@ -13,6 +13,7 @@ import {
   Textarea,
 } from "@/components/ui/primitives";
 import { Badge } from "@/components/ui/status";
+import { listApiTokens } from "@/lib/api/tokens";
 import { requireSessionContext } from "@/lib/auth/session-context";
 import { withOrg } from "@/lib/db/scope";
 import type { PlanTier } from "@/lib/enums";
@@ -29,6 +30,8 @@ import {
 
 import {
   inviteMemberAction,
+  issueApiTokenAction,
+  revokeApiTokenAction,
   revokeInvitationAction,
   saveThemeAction,
   setCredentialPolicyAction,
@@ -50,20 +53,22 @@ export default async function AdminPage() {
   if (!isAdmin) notFound();
 
   const data = await withOrg(session.organizationId, async (db) => {
-    const [members, invitations, organization, agentCount] = await Promise.all([
+    const [members, invitations, tokens, organization, agentCount] = await Promise.all([
       listMembers(db, session.organizationId),
       pendingInvitations(db, session.organizationId),
+      listApiTokens(db, session.organizationId),
       db.organization.findUnique({
         where: { id: session.organizationId },
         select: { requireApproverCredentials: true, themeOverride: true, isReadOnly: true },
       }),
       db.agent.count({ where: { archivedAt: null } }),
     ]);
-    return { members, invitations, organization, agentCount };
+    return { members, invitations, tokens, organization, agentCount };
   });
 
   const features = featuresFor(session.planTier as PlanTier);
   const whiteLabel = can(session.planTier as PlanTier, "whiteLabel");
+  const apiAccess = can(session.planTier as PlanTier, "apiAccess");
   const theme = readThemeOverride(data.organization?.themeOverride ?? null);
   const readOnly = data.organization?.isReadOnly ?? false;
 
@@ -227,6 +232,85 @@ export default async function AdminPage() {
             </SubmitButton>
           </ActionForm>
         </div>
+      </Panel>
+
+      <Panel>
+        <SectionTitle>API tokens</SectionTitle>
+        <Muted className="mt-1 max-w-prose">
+          Read-only access to this workspace&rsquo;s agents, data products and audit trail. There
+          are no write endpoints: an approval is an act by a named person at a gate, and a bearer
+          token is not a person.
+        </Muted>
+
+        {apiAccess ? (
+          <>
+            <ActionForm
+              action={issueApiTokenAction}
+              className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"
+            >
+              <div>
+                <Label htmlFor="tokenName" hint="what will use it">
+                  Token name
+                </Label>
+                <Input
+                  id="tokenName"
+                  name="name"
+                  required
+                  minLength={2}
+                  disabled={readOnly}
+                  placeholder="Governance dashboard"
+                />
+              </div>
+              <SubmitButton disabled={readOnly} pendingLabel="Issuing…">
+                Issue a token
+              </SubmitButton>
+            </ActionForm>
+
+            {data.tokens.length === 0 ? (
+              <Muted className="mt-4">No tokens yet.</Muted>
+            ) : (
+              <ul className="mt-4 divide-y divide-border">
+                {data.tokens.map((token) => (
+                  <li key={token.id} className="flex flex-wrap items-center gap-3 py-3">
+                    <span className="font-medium">{token.name}</span>
+                    <code className="text-xs">{token.prefix}…</code>
+                    <span className="text-muted">
+                      {token.lastUsedAt
+                        ? `last used ${token.lastUsedAt.toISOString().slice(0, 10)}`
+                        : "never used"}
+                    </span>
+                    {token.revokedAt ? (
+                      <Badge tone="warning">revoked</Badge>
+                    ) : (
+                      <ActionForm action={revokeApiTokenAction} className="ml-auto">
+                        <input type="hidden" name="tokenId" value={token.id} />
+                        <SubmitButton
+                          variant="outline"
+                          size="sm"
+                          disabled={readOnly}
+                          pendingLabel="Revoking…"
+                        >
+                          Revoke
+                        </SubmitButton>
+                      </ActionForm>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <Band className="mt-4">
+              <code className="text-xs">
+                curl -H &quot;Authorization: Bearer amx_…&quot; {"{origin}"}/api/v1/agents
+              </code>
+            </Band>
+          </>
+        ) : (
+          <EmptyState
+            title="API access is part of Enterprise"
+            body="Read agents, data products and the audit trail from your own systems, with tokens you can revoke."
+          />
+        )}
       </Panel>
 
       <Panel>
