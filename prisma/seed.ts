@@ -17,6 +17,7 @@ import { db } from "../src/lib/db";
 import { runAsOrg, runAsSystem } from "../src/lib/db/tenancy";
 import { hashPassword } from "../src/lib/auth";
 import { createOrganization } from "../src/lib/organizations/create";
+import { DEMO_VIEWER_EMAIL } from "../src/lib/demo";
 import { recordDecision, requestTransition } from "../src/lib/gates";
 import { loadAllPacks } from "../src/lib/packs/load";
 import { walkToPublished } from "../src/lib/seed/showcase";
@@ -26,6 +27,7 @@ import { ROLES, type RoleKey } from "../src/lib/roles";
 const raw = new PrismaClient();
 
 const SHOWCASE_SLUG = "amx-demo-utility";
+const SANDBOX_SLUG = "amx-demo-utility-sandbox";
 const DEMO_PASSWORD = "amx-demo-2024";
 
 type SeedUser = { email: string; name: string; roles: RoleKey[] };
@@ -120,7 +122,7 @@ async function seedReferenceData(): Promise<void> {
   }
 }
 
-async function seedShowcase(): Promise<void> {
+async function seedDemoUsers(): Promise<Map<string, string>> {
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 
   const users = new Map<string, string>();
@@ -133,38 +135,60 @@ async function seedShowcase(): Promise<void> {
     });
     users.set(seed.email, user.id);
   }
+  return users;
+}
+
+/**
+ * Builds one fully-walked utility tenant: eight approved stages, a published
+ * agent, and enough operating history for the telemetry screens to say
+ * something.
+ *
+ * It is called twice. The showcase copy is sealed read-only at the end and is
+ * what "Explore the live demo" opens. The sandbox copy is left mutable, because
+ * the demo's money moment — publish a breaking contract version, watch the
+ * certification go STALE — is a *write*, and the showcase must never be
+ * writable. Same seed, same script, one of them disposable.
+ */
+async function seedUtilityTenant(options: {
+  name: string;
+  slug: string;
+  isShowcase: boolean;
+  sealReadOnly: boolean;
+  users: Map<string, string>;
+}): Promise<void> {
+  const { name, slug, isShowcase, sealReadOnly, users } = options;
 
   const builderId = users.get("alex.builder@amx.demo")!;
   const productOwnerId = users.get("priya.owner@amx.demo")!;
   const governanceId = users.get("nora.gov@amx.demo")!;
 
   const existing = await raw.organization.findUnique({
-    where: { slug: SHOWCASE_SLUG },
+    where: { slug },
     select: { id: true },
   });
 
   if (existing) {
     // Idempotent re-seed: leave the walked-through history intact and just make
-    // sure the tenant is still read-only.
+    // sure the tenant's demo flags still say what they should.
     await raw.organization.update({
       where: { id: existing.id },
-      data: { isReadOnly: true, isShowcase: true },
+      data: { isReadOnly: sealReadOnly, isShowcase },
     });
-    console.info(`Showcase tenant already seeded (${existing.id}); left as-is.`);
+    console.info(`Tenant ${slug} already seeded (${existing.id}); left as-is.`);
     return;
   }
 
   // The artifacts are authored by the builder, so the approvals below are real
   // peer reviews rather than the author signing their own work.
   const { organizationId } = await createOrganization({
-    name: "Northwind Utility (demo)",
-    slug: SHOWCASE_SLUG,
+    name,
+    slug,
     ownerUserId: builderId,
     ownerName: "Alex Osei",
     planTier: "ENTERPRISE",
     industryId: "utilities",
     workspaceName: "Retail & Revenue",
-    isShowcase: true,
+    isShowcase,
     isReadOnly: false,
     ownerRoles: ["agent-builder"],
   });
@@ -172,6 +196,9 @@ async function seedShowcase(): Promise<void> {
   await runAsOrg(organizationId, async () => {
     for (const seed of DEMO_USERS) {
       if (seed.email === "alex.builder@amx.demo") continue;
+      // The public "Explore the live demo" account belongs to the read-only
+      // showcase only: a visitor must never land somewhere writable.
+      if (!isShowcase && seed.email === DEMO_VIEWER_EMAIL) continue;
       const userId = users.get(seed.email)!;
       const membership = await db.membership.create({
         data: { organizationId, userId },
@@ -211,19 +238,21 @@ async function seedShowcase(): Promise<void> {
       governanceId,
     });
     if (!walk.ok) {
-      console.warn(`Showcase: stopped at ${walk.failedAt} — ${walk.detail}`);
+      console.warn(`${slug}: stopped at ${walk.failedAt} — ${walk.detail}`);
     }
 
     await seedOperations(agent.id, organizationId, persona?.id ?? null);
   });
 
-  // Read-only last: assertMutable refuses everything above once this is set.
-  await raw.organization.update({
-    where: { id: organizationId },
-    data: { isReadOnly: true },
-  });
+  if (sealReadOnly) {
+    // Read-only last: assertMutable refuses everything above once this is set.
+    await raw.organization.update({
+      where: { id: organizationId },
+      data: { isReadOnly: true },
+    });
+  }
 
-  console.info(`Showcase tenant seeded: ${organizationId}`);
+  console.info(`Tenant ${slug} seeded: ${organizationId}`);
 }
 
 /**
@@ -309,7 +338,22 @@ async function main(): Promise<void> {
   await runAsSystem(async () => {
     await seedReferenceData();
   });
-  await seedShowcase();
+
+  const users = await seedDemoUsers();
+  await seedUtilityTenant({
+    name: "Northwind Utility (demo)",
+    slug: SHOWCASE_SLUG,
+    isShowcase: true,
+    sealReadOnly: true,
+    users,
+  });
+  await seedUtilityTenant({
+    name: "Northwind Utility (sandbox)",
+    slug: SANDBOX_SLUG,
+    isShowcase: false,
+    sealReadOnly: false,
+    users,
+  });
 
   if (!showcaseOnly) {
     console.info("\nDemo sign-in:");

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { getSessionContext } from "@/lib/auth/session-context";
+import { switchWorkspaceAction } from "@/app/(app)/switch-workspace";
 import { GuidedTour } from "@/components/guided-tour";
 import { Badge } from "@/components/ui/status";
 
@@ -45,7 +46,33 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <span className="text-surface/90">{session.organizationName}</span>
+            {session.memberships.length > 1 ? (
+              <form action={switchWorkspaceAction} className="flex items-center gap-2">
+                <label htmlFor="organizationId" className="sr-only">
+                  Workspace
+                </label>
+                <select
+                  id="organizationId"
+                  name="organizationId"
+                  defaultValue={session.organizationId}
+                  className="rounded bg-brand-deep px-2 py-1 text-surface"
+                >
+                  {session.memberships.map((membership) => (
+                    <option key={membership.id} value={membership.id}>
+                      {membership.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  className="rounded bg-brand-deep px-2 py-1 text-surface hover:bg-brand-ink"
+                >
+                  Switch
+                </button>
+              </form>
+            ) : (
+              <span className="text-surface/90">{session.organizationName}</span>
+            )}
             <span className="rounded bg-brand-deep px-2 py-0.5 text-xs uppercase tracking-wide">
               {session.planTier}
             </span>

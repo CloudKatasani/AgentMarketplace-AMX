@@ -7,6 +7,15 @@ import { requireSessionContext } from "@/lib/auth/session-context";
 import { withOrg } from "@/lib/db/scope";
 import type { CertificationStatus } from "@/lib/enums";
 
+type Dependant = {
+  agent: { id: string; slug: string; name: string; certification: string };
+  bindingTypes: string[];
+  pinnedTo: string;
+  stale: boolean;
+  drifted: boolean;
+  staleReasons: string[];
+};
+
 /**
  * The product-view inversion.
  *
@@ -80,9 +89,35 @@ export default async function DataProductPage({
 
   if (!product) notFound();
 
-  const drifted = product.bindings.filter(
-    (b) => (b.currentVersion?.boundContractMajor ?? product.contractMajor) < product.contractMajor,
-  );
+  // One agent can bind the same product more than once — grounding on it and
+  // querying it are different relationships. The lineage question is about
+  // agents, though, so the list is one row per agent with its binding types.
+  const dependants = new Map<string, Dependant>();
+  for (const binding of product.bindings) {
+    const existing = dependants.get(binding.agent.id);
+    const drifted =
+      (binding.currentVersion?.boundContractMajor ?? product.contractMajor) < product.contractMajor;
+    if (existing) {
+      existing.bindingTypes.push(binding.bindingType);
+      existing.stale = existing.stale || binding.status === "STALE";
+      existing.drifted = existing.drifted || drifted;
+      if (binding.staleReason && !existing.staleReasons.includes(binding.staleReason)) {
+        existing.staleReasons.push(binding.staleReason);
+      }
+      continue;
+    }
+    dependants.set(binding.agent.id, {
+      agent: binding.agent,
+      bindingTypes: [binding.bindingType],
+      pinnedTo: binding.currentVersion?.boundContractVersion ?? "—",
+      stale: binding.status === "STALE",
+      drifted,
+      staleReasons: binding.staleReason ? [binding.staleReason] : [],
+    });
+  }
+
+  const rows = [...dependants.values()];
+  const driftedCount = rows.filter((row) => row.drifted).length;
 
   return (
     <div className="space-y-6">
@@ -105,10 +140,10 @@ export default async function DataProductPage({
         </div>
       </div>
 
-      {drifted.length > 0 ? (
+      {driftedCount > 0 ? (
         <Band>
-          {drifted.length} agent{drifted.length === 1 ? " is" : "s are"} pinned to an older major
-          version of this contract and need re-approval.
+          {driftedCount} agent{driftedCount === 1 ? " is" : "s are"} pinned to an older major version
+          of this contract and {driftedCount === 1 ? "needs" : "need"} re-approval.
         </Band>
       ) : null}
 
@@ -119,28 +154,31 @@ export default async function DataProductPage({
           re-certifying.
         </Muted>
 
-        {product.bindings.length === 0 ? (
+        {rows.length === 0 ? (
           <Muted className="mt-3">Nothing binds to this product yet.</Muted>
         ) : (
           <ul className="mt-4 divide-y divide-border">
-            {product.bindings.map((binding) => (
-              <li key={binding.id} className="flex flex-wrap items-center gap-3 py-3">
-                <Link href={`/marketplace/${binding.agent.slug}`} className="font-medium">
-                  {binding.agent.name}
+            {rows.map((row) => (
+              <li key={row.agent.id} className="flex flex-wrap items-center gap-3 py-3">
+                <Link href={`/marketplace/${row.agent.slug}`} className="font-medium">
+                  {row.agent.name}
                 </Link>
-                <Badge tone="neutral">
-                  {binding.bindingType.replace(/_/g, " ").toLowerCase()}
-                </Badge>
-                <CertificationBadge status={binding.agent.certification as CertificationStatus} />
-                <span className="text-muted">
-                  pinned to {binding.currentVersion?.boundContractVersion ?? "—"}
-                </span>
-                {binding.status === "STALE" ? <Badge tone="warning">stale</Badge> : null}
-                {binding.staleReason ? (
-                  <p className="w-full rounded bg-warning-tint px-3 py-2 text-warning">
-                    {binding.staleReason}
+                {row.bindingTypes.map((type) => (
+                  <Badge key={type} tone="neutral">
+                    {type.replace(/_/g, " ").toLowerCase()}
+                  </Badge>
+                ))}
+                <CertificationBadge status={row.agent.certification as CertificationStatus} />
+                <span className="text-muted">pinned to {row.pinnedTo}</span>
+                {row.stale ? <Badge tone="warning">stale</Badge> : null}
+                {row.staleReasons.map((reason) => (
+                  <p
+                    key={reason}
+                    className="w-full rounded bg-warning-tint px-3 py-2 text-warning"
+                  >
+                    {reason}
                   </p>
-                ) : null}
+                ))}
               </li>
             ))}
           </ul>

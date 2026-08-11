@@ -22,3 +22,5 @@ prisma/*.db-journal
 # convenience mirror for diffing and export, and it is per-deployment data.
 workspace/
 .test-workspace/
+
+.e2e-workspace/
