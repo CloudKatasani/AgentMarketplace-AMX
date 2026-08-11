@@ -18,6 +18,7 @@ import { runAsOrg, runAsSystem } from "../src/lib/db/tenancy";
 import { hashPassword } from "../src/lib/auth";
 import { createOrganization } from "../src/lib/organizations/create";
 import { recordDecision, requestTransition } from "../src/lib/gates";
+import { loadAllPacks } from "../src/lib/packs/load";
 import { walkToPublished } from "../src/lib/seed/showcase";
 import { STAGES } from "../src/lib/lifecycle/stages";
 import { ROLES, type RoleKey } from "../src/lib/roles";
@@ -83,46 +84,39 @@ async function seedReferenceData(): Promise<void> {
     });
   }
 
-  await raw.industry.upsert({
-    where: { id: "_generic" },
-    update: {},
-    create: {
-      id: "_generic",
-      name: "Generic",
-      packVersion: "1.0.0",
-      summary: "Industry-agnostic vocabulary and roles. The default for a new organisation.",
-    },
-  });
+  // Industries and domains come from the packs on disk, so adding a pack adds
+  // an industry without touching this file.
+  const { loaded, failed } = loadAllPacks();
+  for (const failure of failed) {
+    if (!failure.ok) {
+      console.warn(`Pack ${failure.key} failed to load:`, failure.issues[0]?.message);
+    }
+  }
 
-  await raw.industry.upsert({
-    where: { id: "utilities" },
-    update: {},
-    create: {
-      id: "utilities",
-      name: "Utilities & Energy",
-      packVersion: "1.0.0",
-      summary:
-        "Customer → Account → Premise → Service Point → Meter, with retail, billing, and network domains.",
-    },
-  });
-
-  const utilityDomains = [
-    { key: "customer-experience", name: "Customer Experience" },
-    { key: "meter-to-cash", name: "Meter to Cash" },
-    { key: "network-operations", name: "Network Operations" },
-    { key: "energy-trading", name: "Energy Trading" },
-  ];
-  for (const domain of utilityDomains) {
-    await raw.domain.upsert({
-      where: { industryId_key: { industryId: "utilities", key: domain.key } },
-      update: {},
+  for (const pack of loaded) {
+    await raw.industry.upsert({
+      where: { id: pack.key },
+      update: { name: pack.name, packVersion: pack.version, summary: pack.summary },
       create: {
-        id: `utilities:${domain.key}`,
-        industryId: "utilities",
-        key: domain.key,
-        name: domain.name,
+        id: pack.key,
+        name: pack.name,
+        packVersion: pack.version,
+        summary: pack.summary,
       },
     });
+
+    for (const domain of pack.domains) {
+      await raw.domain.upsert({
+        where: { industryId_key: { industryId: pack.key, key: domain.key } },
+        update: { name: domain.name },
+        create: {
+          id: `${pack.key}:${domain.key}`,
+          industryId: pack.key,
+          key: domain.key,
+          name: domain.name,
+        },
+      });
+    }
   }
 }
 

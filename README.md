@@ -6,10 +6,10 @@ human approved it.
 `CLAUDE.md` is binding for work in this repository. `PROMPT.md` holds the phase plan,
 `PITCH.md` the positioning, `SKILLS.md` the skill register.
 
-**Status: Phase 3 complete** — the full eight-stage lifecycle, the marketplace with its persona
-lens and product-view inversion, signed evidence packs (PDF and Word), and demo mode protected by
-a test that walks the seven-minute arc. Academy, industry packs, exports, and AI assist land in
-Phase 4.
+**Status: Phase 4 complete** — the full eight-stage lifecycle, the marketplace, signed evidence
+packs, demo mode protected by a test, nine industry packs, the Academy with credential-gated
+approver roles, the full export set, a Stripe-shaped billing adapter, and propose-only AI assist.
+Phase 5 is hardening: end-to-end browser tests, ADRs, and the scripted demo.
 
 ---
 
@@ -66,6 +66,8 @@ needed — every enum is a `String` column whose domain lives in `src/lib/enums.
 | `pnpm build` | Production build |
 | `pnpm seed` | Reference data + showcase tenant (idempotent) |
 | `pnpm seed:showcase` | Showcase tenant only |
+| `pnpm pack:validate` | Validate every industry pack (runs in CI) |
+| `pnpm verify` | typecheck + lint + packs + tests + build |
 
 ## How it is put together
 

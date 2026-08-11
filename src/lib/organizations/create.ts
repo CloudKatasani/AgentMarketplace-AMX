@@ -97,25 +97,16 @@ export async function createOrganization(
 
     let starterAgentId: string | null = null;
     if (input.seedStarter !== false) {
-      // File the starter content under a domain of the chosen industry when it
-      // has one. Pack-driven vocabulary and seed content arrive in Phase 4;
-      // today the industry choice sets the tenant's industry and its domain.
-      const domain = input.industryId
-        ? await db.domain.findFirst({
-            where: { industryId: input.industryId },
-            orderBy: { key: "asc" },
-            select: { id: true },
-          })
-        : null;
-
+      // The industry IS the pack key: picking Utilities seeds utility
+      // personas, questions, products, and a starter agent in that vocabulary.
       const starter = await seedStarterWorkspace(db, {
         organizationId: organization.id,
         workspaceId: workspace.id,
         ownerUserId: input.ownerUserId,
         ownerName: input.ownerName,
-        domainId: domain?.id ?? null,
+        packKey: input.industryId ?? "_generic",
       });
-      starterAgentId = starter.agentId;
+      starterAgentId = starter?.agentId ?? null;
     }
 
     await track({

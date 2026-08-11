@@ -22,6 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/marketplace", label: "Marketplace" },
     { href: "/agents", label: "Agents" },
     { href: "/data-products", label: "Data products" },
+    { href: "/academy", label: "Academy" },
     { href: "/audit", label: "Audit trail" },
   ];
 

@@ -5,6 +5,7 @@ import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 
 import { STAGES } from "../src/lib/lifecycle/stages";
+import { loadAllPacks } from "../src/lib/packs/load";
 import { ROLES } from "../src/lib/roles";
 
 /**
@@ -53,6 +54,29 @@ export default async function setup() {
           purpose: stage.purpose,
         },
       });
+    }
+
+    // Industries and domains come from the packs, exactly as in production —
+    // so a pack that would break seeding breaks the tests too.
+    for (const pack of loadAllPacks().loaded) {
+      await db.industry.create({
+        data: {
+          id: pack.key,
+          name: pack.name,
+          packVersion: pack.version,
+          summary: pack.summary,
+        },
+      });
+      for (const domain of pack.domains) {
+        await db.domain.create({
+          data: {
+            id: `${pack.key}:${domain.key}`,
+            industryId: pack.key,
+            key: domain.key,
+            name: domain.name,
+          },
+        });
+      }
     }
   } finally {
     await db.$disconnect();

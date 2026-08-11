@@ -1,0 +1,439 @@
+# Manufacturing pack — 1.0.0
+# Illustrative and editable. Packs change vocabulary and seed content, never logic.
+
+schemaVersion: 1.0.0
+key: manufacturing
+name: Manufacturing
+version: 1.0.0
+summary: Plant, line, and asset, organised around the throughput and quality decisions a production week
+  turns on.
+disclaimer: This pack is illustrative. Every persona, question, product, and constraint is a starting
+  point to edit, not a standard to comply with.
+domains:
+- key: production
+  name: Production
+- key: quality
+  name: Quality
+- key: maintenance
+  name: Maintenance
+- key: supply-chain
+  name: Supply Chain
+- key: safety
+  name: Safety
+conformedBackbone:
+- Plant
+- Line
+- Asset
+- Batch
+- Material
+personas:
+- key: plant-manager
+  name: Plant Manager
+  kind: BUSINESS
+  ownedDecisions: Which lines get maintenance windows and which orders are resequenced.
+  cadence: Daily, with a weekly production review
+  currentWorkaround: Reads shift reports and an OEE dashboard nobody agrees on.
+- key: quality-engineer
+  name: Quality Engineer
+  kind: BUSINESS
+  ownedDecisions: Which batches are held, released, or investigated.
+  cadence: Daily
+  currentWorkaround: Chases lab results and correlates them to process data by hand.
+questionLibrary:
+- key: q-oee-trend
+  personaKey: plant-manager
+  text: Which lines lost the most effectiveness this week?
+  intentClass: trend
+  consequenceOfNoAnswer: Improvement effort goes to the line with the loudest supervisor.
+  expectedAnswerShape: Line list with OEE and change versus prior week
+  metricKey: overall_equipment_effectiveness
+- key: q-downtime
+  personaKey: plant-manager
+  text: Where is unplanned downtime concentrated?
+  intentClass: comparison
+  consequenceOfNoAnswer: Maintenance windows are scheduled where they are convenient rather than where
+    they pay.
+  expectedAnswerShape: Line and asset list with downtime minutes
+  metricKey: unplanned_downtime_minutes
+- key: q-why-oee
+  personaKey: plant-manager
+  text: Why did effectiveness drop on the lines we flagged?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: The same losses recur because the cause was never separated from the symptom.
+  expectedAnswerShape: Contributing factors ranked by effect
+  metricKey: overall_equipment_effectiveness
+- key: q-yield
+  personaKey: quality-engineer
+  text: Which lines have first-pass yield below target?
+  intentClass: lookup
+  consequenceOfNoAnswer: Rework is absorbed as normal cost and never investigated.
+  expectedAnswerShape: Line list with yield against target
+  metricKey: first_pass_yield
+dataProducts:
+- key: production-performance
+  name: Production Performance
+  description: Conformed plant, line, and batch view with certified throughput and loss metrics.
+  domainKey: production
+  owner: Manufacturing Analytics
+  contractVersion: 1.6.0
+  semanticModelVersion: 1.6.0
+  layer: GOLD
+  qualityScore: 90
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: overall_equipment_effectiveness
+    name: Overall equipment effectiveness
+    definition: Availability multiplied by performance multiplied by quality for a line and period.
+    grain: line / shift
+    unit: percent
+    semanticRef: semantic.production_performance.overall_equipment_effectiveness
+  - key: unplanned_downtime_minutes
+    name: Unplanned downtime
+    definition: Minutes of unplanned stoppage on a line in the period.
+    grain: line / shift
+    unit: minutes
+    semanticRef: semantic.production_performance.unplanned_downtime_minutes
+- key: quality-signals
+  name: Quality Signals
+  description: Certified defect, scrap, and first-pass-yield metrics across lines.
+  domainKey: quality
+  owner: Quality Analytics
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 88
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: first_pass_yield
+    name: First-pass yield
+    definition: Share of units passing quality checks without rework, by line and period.
+    grain: line / shift
+    unit: percent
+    semanticRef: semantic.quality_signals.first_pass_yield
+starterAgents:
+- key: line-effectiveness-advisor
+  name: Line Effectiveness Advisor
+  summary: Tells a plant manager which lines are losing effectiveness and what the certified numbers say
+    about why.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: production
+  primaryPersonaKey: plant-manager
+  questionKeys:
+  - q-oee-trend
+  - q-downtime
+  - q-why-oee
+  bindings:
+  - dataProductKey: production-performance
+    type: GROUNDS_ON
+    purpose: Production Performance provides the plant, line, and batch context for every answer.
+    metricKeys: []
+  - dataProductKey: production-performance
+    type: QUERIES
+    purpose: Reads certified effectiveness and downtime metrics behind each recommendation.
+    metricKeys:
+    - overall_equipment_effectiveness
+    - unplanned_downtime_minutes
+regulatoryConstraints:
+- key: personal-data-minimisation
+  name: Personal data minimisation
+  prompt: This agent reads personal or restricted data. Say what it may return about an individual, and
+    what it must aggregate or withhold.
+  appliesToSensitivity:
+  - CONFIDENTIAL
+  - RESTRICTED
+  appliesToRiskTier: []
+  citation: ''
+- key: human-oversight
+  name: Human oversight of automated decisions
+  prompt: A human must remain accountable for the decision. Say where the human is in the loop and what
+    they see before acting.
+  appliesToSensitivity: []
+  appliesToRiskTier:
+  - decision-support
+  - action-taking
+  citation: ''
+- key: action-authorisation
+  name: Authorisation for automated action
+  prompt: This agent acts in a system. Say who authorises each action class, and what it may never do
+    without a human.
+  appliesToSensitivity: []
+  appliesToRiskTier:
+  - action-taking
+  citation: ''
+- key: record-keeping
+  name: Record-keeping and traceability
+  prompt: Say how long invocations and their citations are retained, and who can retrieve them when asked.
+  appliesToSensitivity: []
+  appliesToRiskTier: []
+  citation: ''
+- key: safety-precedence
+  name: Safety takes precedence
+  prompt: If an answer could encourage running an asset past a safety limit, say how the agent refuses
+    and who it escalates to.
+  appliesToSensitivity: []
+  appliesToRiskTier:
+  - decision-support
+  - action-taking
+  citation: ''
+- key: batch-traceability
+  name: Batch traceability
+  prompt: Say how an answer about a batch can be traced back to the process and material records that
+    produced it.
+  appliesToSensitivity: []
+  appliesToRiskTier: []
+  citation: ''
+glossary:
+- term: OEE
+  definition: 'Overall equipment effectiveness: availability times performance times quality.'
+- term: first-pass yield
+  definition: Units passing quality checks without rework.
+- term: changeover
+  definition: The time between producing one product and the next on the same line.
+referenceRules:
+  deniedIdentifierPatterns:
+  - ^bronze[._]
+  - ^silver[._]
+  - ^raw[._]
+  - ^stg[._]
+  - ^mes_raw
+  - ^historian_stage
+academy:
+- key: governance-officer
+  title: Governance Officer
+  roleKey: governance-officer
+  summary: What you are signing for, and how the gates, cascades, and evidence packs fit together.
+  credentialKey: governance-officer-credential
+  courses:
+  - key: core
+    title: Governance Officer — core
+    summary: What you are signing for, and how the gates, cascades, and evidence packs fit together.
+    modules:
+    - key: why-gates
+      title: Why an agent is chartered, not deployed
+      body: An agent that nobody chartered has no scope, and an agent with no scope cannot be refused
+        anything. This module covers what a charter has to contain — a mission in one sentence, a scope
+        boundary, an explicit list of what the agent must never do, a risk tier, and a named human owner
+        — and why the out-of-scope list is the field a reviewer reads first. You will look at a real charter
+        in your workspace and find the sentence that would stop a bad question.
+      lab:
+        title: Find the boundary
+        instructions: Open a chartered agent, read its out-of-scope list, and write down one question
+          a user might reasonably ask that the list rules out. Then check the Stage 5 adversarial probes
+          to see whether that question is already tested.
+        target: agent
+      assessment:
+      - question: An agent's charter has an empty out-of-scope list. What does that mean?
+        options:
+        - It can answer anything
+        - It has no boundary, only an aspiration
+        - It is low risk
+        correctIndex: 1
+        explanation: Scope is defined by exclusion. Without stated exclusions there is nothing to refuse.
+      - question: Who may record an approval decision?
+        options:
+        - Anyone with edit access
+        - Only a member holding an approver role named by that stage
+        - The agent's author
+        correctIndex: 1
+        explanation: Roles are checked server-side at every decision; the UI hiding a button is a courtesy,
+          not the enforcement.
+    - key: coverage-and-bindings
+      title: What an agent stands on
+      body: 'Every question an agent claims to answer must be traceable to a certified metric on a governed
+        data product. This module covers the five binding types, why the binding pins the contract version
+        it was approved against, and what the coverage matrix is actually asserting. It also covers the
+        rule that catches people out: agents answer through the semantic layer, never by querying a physical
+        table, and the validator enforces that on bindings, grounding packs, and tool specifications alike.'
+      lab:
+        title: Read the matrix
+        instructions: Open the coverage matrix for an agent and find one question. Follow it to the binding,
+          then to the certified metric, then to the data product and its contract version. Write that
+          chain down in one sentence.
+        target: coverage-matrix
+      assessment:
+      - question: A QUERIES binding names no certified metric. What happens?
+        options:
+        - It is saved with a warning
+        - It is refused and nothing is written
+        - It is saved as a draft
+        correctIndex: 1
+        explanation: A binding that fails validation is not written at all, so there is nothing half-saved
+          to explain later.
+      - question: What does a binding pin?
+        options:
+        - The data product's name
+        - The contract version it was approved against
+        - The metric's value
+        correctIndex: 1
+        explanation: The pin is what makes cascade invalidation a comparison rather than a guess.
+    - key: stale-and-evidence
+      title: When trust expires
+      body: Certification is not permanent. When a bound data product publishes a breaking contract version,
+        every agent pinned to an older major is standing on something that moved, and its certification
+        flips to STALE with re-certification tasks for the roles that signed it. This module covers both
+        cascade directions, why minor and patch bumps deliberately do not cascade, and what the evidence
+        pack contains — including the manifest that lets a reader verify it rather than trust it.
+      lab:
+        title: Verify a pack
+        instructions: Download an evidence pack and find the manifest section. Check that the audit chain
+          verified, and match one artifact content hash in the manifest to the same hash shown on the
+          agent page.
+        target: evidence-pack
+      assessment:
+      - question: A bound product goes from 2.1.0 to 2.2.0. What happens to dependent certifications?
+        options:
+        - They go STALE
+        - Nothing — a minor bump is not breaking
+        - They are revoked
+        correctIndex: 1
+        explanation: Crying wolf on every patch is how governance tooling gets switched off. Only a major
+          bump cascades.
+- key: agent-builder
+  title: Agent Builder
+  roleKey: agent-builder
+  summary: Building an agent that starts with a blocked decision and answers only through certified data.
+  credentialKey: agent-builder-credential
+  courses:
+  - key: core
+    title: Agent Builder — core
+    summary: Building an agent that starts with a blocked decision and answers only through certified
+      data.
+    modules:
+    - key: consumption-first
+      title: Start with the blocked decision
+      body: 'Stage 1 is the most important screen in the product, and the sentence you have to be able
+        to finish honestly is: this person has to decide that, this often, and today they do this instead.
+        This module covers writing personas that name a real role rather than a department, and questions
+        that state the consequence of having no answer — because a question with no consequence is a nice-to-have,
+        and agents built from nice-to-haves are the ones nobody opens twice.'
+      lab:
+        title: Rewrite a weak question
+        instructions: Find a question in your workspace whose consequence-of-no-answer is vague. Rewrite
+          it so it names what actually goes wrong, and check whether the answer shape still makes sense
+          afterwards.
+        target: agent
+      assessment:
+      - question: Why does Stage 2 stay blocked until a persona has three complete questions?
+        options:
+        - To slow people down
+        - Because scope comes from the questions, not the other way round
+        - To fill the form
+        correctIndex: 1
+        explanation: A charter written before the questions is a guess about scope.
+    - key: grounding-and-tools
+      title: Grounding without a back door
+      body: 'A grounding pack is where a raw table reference sneaks back in. This module covers what belongs
+        in one — worked examples, vocabulary, certified metric definitions, and joins between named semantic
+        entities — and what has no field at all, deliberately: there is nowhere to put a query. It also
+        covers tool specifications, where every tool names the binding it acts through and at least one
+        rule for when it must refuse.'
+      lab:
+        title: Break the guardrail on purpose
+        instructions: In a workspace you own, add a disambiguation hint that mentions a Silver or Bronze
+          table and try to save the grounding pack. Read the rejection, then fix it the way the message
+          suggests.
+        target: agent
+      assessment:
+      - question: A tool specification has no refusal rules. Why is that refused?
+        options:
+        - It is a formatting rule
+        - A tool that never refuses has no scope
+        - Refusals are optional
+        correctIndex: 1
+        explanation: The refusal rules are where the charter's boundary becomes something the agent can
+          act on.
+- key: agent-product-owner
+  title: Agent Product Owner
+  roleKey: agent-product-owner
+  summary: Owning an agent's scope, running review rounds, and keeping it honest after publication.
+  credentialKey: agent-product-owner-credential
+  courses:
+  - key: core
+    title: Agent Product Owner — core
+    summary: Owning an agent's scope, running review rounds, and keeping it honest after publication.
+    modules:
+    - key: owning-an-agent
+      title: Being accountable by name
+      body: 'Someone''s name is on every agent, and it is yours. This module covers what you are accepting
+        when you approve a stage, what a re-approval task means when a cascade raises one, and how to
+        run a changes-requested round that gives the author a list of edits rather than a mood. It also
+        covers the parking lot: the place for things worth remembering that must never block a gate.'
+      lab:
+        title: Run a review round
+        instructions: Open a stage under review, anchor a comment to a specific field, and request changes.
+          Then follow what happens to the gate and the task list.
+        target: agent
+      assessment:
+      - question: An artifact changes while a gate is open for review. What should happen?
+        options:
+        - The approval covers the new version
+        - The gate goes stale and must be re-submitted
+        - Nothing
+        correctIndex: 1
+        explanation: A gate approves a snapshot. Signing something the reviewer never read is the failure
+          this prevents.
+- key: data-product-owner
+  title: Data Product Owner
+  roleKey: data-product-owner
+  summary: Certified metrics, contract versions, and what a breaking change does to your consumers.
+  credentialKey: data-product-owner-credential
+  courses:
+  - key: core
+    title: Data Product Owner — core
+    summary: Certified metrics, contract versions, and what a breaking change does to your consumers.
+    modules:
+    - key: contracts-and-cascade
+      title: Publishing a contract version
+      body: 'As a data product owner you decide when consumers of your product have to re-check their
+        work. This module covers what makes a change breaking, why AMX cascades only on a major bump,
+        and what happens on the other side: dependent bindings go STALE, agent certifications flip, and
+        re-certification tasks land with you and the governance officer. It also covers what a certified
+        metric owes its consumers — a definition, a grain, and a semantic reference that is not a table.'
+      lab:
+        title: See who depends on you
+        instructions: Open one of your data products and read the list of agents standing on it. For each,
+          note which binding type it uses and which contract version it is pinned to.
+        target: data-product
+      assessment:
+      - question: You need to remove a column consumers rely on. Which version bump?
+        options:
+        - Patch
+        - Minor
+        - Major
+        correctIndex: 2
+        explanation: Removing something consumers depend on is breaking, and only a major bump makes dependants
+          re-check.
+- key: business-consumer
+  title: Business Consumer
+  roleKey: business-consumer
+  summary: How to read an agent listing and decide whether to rely on it.
+  credentialKey: business-consumer-credential
+  courses:
+  - key: core
+    title: Business Consumer — core
+    summary: How to read an agent listing and decide whether to rely on it.
+    modules:
+    - key: reading-a-listing
+      title: Reading an agent listing
+      body: Before you rely on an agent, you can check what it is allowed to answer, what it stands on,
+        and who signed for it. This module covers the certification badge and the difference between peer-certified
+        and self-attested, the question catalogue and what a missing metric means, and the STALE banner
+        — which tells you the agent's answers may now rest on a contract nobody has re-approved.
+      lab:
+        title: Decide whether to trust it
+        instructions: Open an agent in the marketplace. Find one question you would actually ask, check
+          the metric behind it, and decide whether you would act on that answer without checking anything
+          else.
+        target: agent
+      assessment:
+      - question: An agent's badge says 'self-attested'. What does that tell you?
+        options:
+        - It is uncertified
+        - One person reviewed their own work and signed a statement saying so
+        - It failed review
+        correctIndex: 1
+        explanation: Self-attestation is permitted and recorded — and deliberately distinguished from
+          a second pair of eyes.

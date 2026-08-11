@@ -552,6 +552,17 @@ export function StageSeven({
 
 // ───────────────────────────── Stage 8 ─────────────────────────────
 
+const EXPORTS: { format: string; label: string; note: string; teamOnly: boolean }[] = [
+  { format: "evidence-pack-pdf", label: "Evidence pack (PDF)", note: "The one you hand an auditor.", teamOnly: false },
+  { format: "evidence-pack-docx", label: "Evidence pack (Word)", note: "Same content, editable.", teamOnly: false },
+  { format: "question-catalog-xlsx", label: "Question catalogue (Excel)", note: "Dropdowns and a COUNTIFS coverage summary.", teamOnly: true },
+  { format: "grounding-pack-json", label: "Grounding pack (JSON)", note: "DPF Stage 10 compatible.", teamOnly: true },
+  { format: "listing-json", label: "Listing (JSON)", note: "For your own catalogue.", teamOnly: true },
+  { format: "binding-graph-mmd", label: "Binding graph (Mermaid)", note: "Paste into your own docs.", teamOnly: true },
+  { format: "binding-graph-svg", label: "Binding graph (SVG)", note: "For a slide.", teamOnly: true },
+  { format: "agent-bundle-zip", label: "Full bundle (zip)", note: "Everything above, with a manifest.", teamOnly: true },
+];
+
 export function StageEight({
   agentId,
   agentSlug,
@@ -560,6 +571,7 @@ export function StageEight({
   staleness,
   status,
   locked,
+  exportsEnabled,
 }: {
   agentId: string;
   agentSlug: string;
@@ -568,11 +580,46 @@ export function StageEight({
   staleness: StalenessRow[];
   status: string;
   locked: boolean;
+  exportsEnabled: boolean;
 }) {
   const problems = staleness.filter((row) => row.problem);
 
   return (
     <div className="space-y-6">
+      <Panel>
+        <SectionTitle>Exports</SectionTitle>
+        <Muted className="mt-1 max-w-prose">
+          Every export is assembled from committed artifact versions, so it is a view of the record
+          rather than a second copy that can drift.
+        </Muted>
+
+        <ul className="mt-4 space-y-2">
+          {EXPORTS.map((item) => {
+            const blocked = item.teamOnly && !exportsEnabled;
+            return (
+              <li key={item.format} className="flex flex-wrap items-center gap-3">
+                {blocked ? (
+                  <span className="text-muted">{item.label}</span>
+                ) : (
+                  <Link href={`/api/agents/${agentId}/export?format=${item.format}`}>
+                    {item.label}
+                  </Link>
+                )}
+                <span className="text-muted">{item.note}</span>
+                {blocked ? <Badge tone="neutral">Team</Badge> : null}
+              </li>
+            );
+          })}
+        </ul>
+
+        {!exportsEnabled ? (
+          <Band className="mt-4">
+            The evidence pack is on every plan — that is the one you hand an auditor. The bulk
+            exports are part of Team.
+          </Band>
+        ) : null}
+      </Panel>
+
       <Panel>
         <SectionTitle>Marketplace listing</SectionTitle>
         <Muted className="mt-1">

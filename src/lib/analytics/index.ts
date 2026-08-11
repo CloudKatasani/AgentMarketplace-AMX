@@ -16,7 +16,13 @@ export type AnalyticsEventName =
   | "gate_decided"
   | "stale_triggered"
   | "onboarding_step_completed"
-  | "evidence_pack_exported";
+  | "evidence_pack_exported"
+  | "academy_path_started"
+  | "academy_module_completed"
+  | "academy_credential_awarded"
+  | "export_downloaded"
+  | "upgrade_prompt_shown"
+  | "ai_draft_proposed";
 
 export type TrackInput = {
   name: AnalyticsEventName;

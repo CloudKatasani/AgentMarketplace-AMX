@@ -1,0 +1,509 @@
+# Utilities & Energy pack — 1.0.0
+# Illustrative and editable. Packs change vocabulary and seed content, never logic.
+
+schemaVersion: 1.0.0
+key: utilities
+name: Utilities & Energy
+version: 1.0.0
+summary: Customer through to Meter, with the eight domains a retail energy business actually organises
+  around, and the churn and high-bill thread that runs through the worked example.
+disclaimer: This pack is illustrative. Every persona, question, product, and constraint is a starting
+  point to edit, not a standard to comply with.
+domains:
+- key: customer-experience
+  name: Customer Experience
+- key: meter-to-cash
+  name: Meter to Cash
+- key: network-operations
+  name: Network Operations
+- key: energy-trading
+  name: Energy Trading
+- key: field-services
+  name: Field Services
+- key: asset-management
+  name: Asset Management
+- key: regulatory-reporting
+  name: Regulatory Reporting
+- key: sustainability
+  name: Sustainability
+conformedBackbone:
+- Customer
+- Account
+- Premise
+- Service Point
+- Meter
+personas:
+- key: revenue-assurance-analyst
+  name: Revenue Assurance Analyst
+  kind: BUSINESS
+  ownedDecisions: Which residential accounts get a retention offer this cycle, and which billing anomalies
+    get investigated before they become complaints.
+  cadence: Weekly, with a daily exception review
+  currentWorkaround: Exports three dashboards to a spreadsheet every Monday and reconciles them by hand.
+- key: field-operations-lead
+  name: Field Operations Lead
+  kind: BUSINESS
+  ownedDecisions: Which crews are dispatched to which outages first, and which jobs can wait.
+  cadence: Daily, and continuously during a storm
+  currentWorkaround: A whiteboard, the outage map, and three phone calls.
+- key: regulatory-reporting-manager
+  name: Regulatory Reporting Manager
+  kind: BUSINESS
+  ownedDecisions: Which figures are signed off for the regulatory submission, and which need a caveat.
+  cadence: Quarterly, with a monthly dry run
+  currentWorkaround: Chases four teams for numbers and reconciles definitions by email.
+- key: data-platform-engineer
+  name: Data Platform Engineer
+  kind: IT
+  ownedDecisions: Which meter-read pipelines are paused and which incidents are escalated.
+  cadence: Daily
+  currentWorkaround: Reads alert channels and checks read-completeness dashboards manually.
+questionLibrary:
+- key: q-churn-rising
+  personaKey: revenue-assurance-analyst
+  text: Which residential segments are churning faster than last quarter?
+  intentClass: trend
+  consequenceOfNoAnswer: Retention budget goes to the loudest segment rather than the one actually leaving.
+  expectedAnswerShape: Ranked segment list with churn rate and change versus prior quarter
+  metricKey: residential_churn_rate
+- key: q-high-bill
+  personaKey: revenue-assurance-analyst
+  text: Which accounts are at risk of a high bill next cycle?
+  intentClass: forecast
+  consequenceOfNoAnswer: The first the analyst hears about it is the complaint, after the invoice has
+    gone out.
+  expectedAnswerShape: Account list with risk score and the driver behind it
+  metricKey: high_bill_risk
+- key: q-why-leaving
+  personaKey: revenue-assurance-analyst
+  text: Why is churn rising in the accounts we already flagged?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: Retention offers are generic, so they are expensive and they do not work.
+  expectedAnswerShape: Contributing factors ranked by effect, each traceable to a metric
+  metricKey: residential_churn_rate
+- key: q-unbilled
+  personaKey: revenue-assurance-analyst
+  text: How much consumption is recorded but not yet invoiced?
+  intentClass: lookup
+  consequenceOfNoAnswer: Revenue is recognised late and the cash forecast is wrong.
+  expectedAnswerShape: Unbilled revenue by billing cycle with movement since last close
+  metricKey: unbilled_revenue
+- key: q-worst-feeders
+  personaKey: field-operations-lead
+  text: Which feeders have the worst interruption duration this month?
+  intentClass: comparison
+  consequenceOfNoAnswer: Crews are sent where the complaints are loudest rather than where the reliability
+    is worst.
+  expectedAnswerShape: Feeder list with SAIDI minutes and change versus prior month
+  metricKey: saidi_minutes
+- key: q-read-completeness
+  personaKey: data-platform-engineer
+  text: Which meter-read routes are below completeness threshold today?
+  intentClass: lookup
+  consequenceOfNoAnswer: Estimated bills go out, and the complaints arrive three weeks later.
+  expectedAnswerShape: Route list with read completeness against threshold
+  metricKey: read_completeness
+dataProducts:
+- key: customer-360
+  name: Customer 360
+  description: Conformed customer view across accounts, premises, and service points. Serves residential
+    retention and billing analytics.
+  domainKey: customer-experience
+  owner: Retail Analytics
+  contractVersion: 2.1.0
+  semanticModelVersion: 2.1.0
+  layer: GOLD
+  qualityScore: 94
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: residential_churn_rate
+    name: Residential churn rate
+    definition: Share of residential accounts that terminate service in a rolling 90-day window, excluding
+      moves within the service territory.
+    grain: account / month
+    unit: percent
+    semanticRef: semantic.customer_360.residential_churn_rate
+  - key: high_bill_risk
+    name: High-bill risk score
+    definition: Modelled likelihood that an account's next invoice exceeds its trailing 12-month average
+      by more than 40 percent.
+    grain: account / billing cycle
+    unit: score 0-1
+    semanticRef: semantic.customer_360.high_bill_risk
+- key: meter-to-cash
+  name: Meter-to-Cash
+  description: Certified billing lifecycle metrics from meter read through invoice and payment.
+  domainKey: meter-to-cash
+  owner: Revenue Operations
+  contractVersion: 1.4.2
+  semanticModelVersion: 1.4.0
+  layer: GOLD
+  qualityScore: 88
+  sensitivity: INTERNAL
+  freshnessSlaHours: 12
+  metrics:
+  - key: unbilled_revenue
+    name: Unbilled revenue
+    definition: Consumption recorded but not yet invoiced, at the close of each billing cycle.
+    grain: billing cycle
+    unit: currency
+    semanticRef: semantic.meter_to_cash.unbilled_revenue
+  - key: read_completeness
+    name: Read completeness
+    definition: Share of scheduled meter reads successfully collected for a route in the current cycle.
+    grain: route / cycle
+    unit: percent
+    semanticRef: semantic.meter_to_cash.read_completeness
+- key: network-reliability
+  name: Network Reliability
+  description: Certified outage, restoration, and reliability metrics by feeder and premise.
+  domainKey: network-operations
+  owner: Network Operations
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 91
+  sensitivity: INTERNAL
+  freshnessSlaHours: 6
+  metrics:
+  - key: saidi_minutes
+    name: SAIDI
+    definition: Average interruption duration per customer served, in minutes, over the reporting period.
+    grain: feeder / month
+    unit: minutes
+    semanticRef: semantic.network_reliability.saidi_minutes
+starterAgents:
+- key: customer-churn-advisor
+  name: Customer Churn Advisor
+  summary: Tells a retention analyst which residential accounts are about to leave, and what the certified
+    numbers say about why.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: customer-experience
+  primaryPersonaKey: revenue-assurance-analyst
+  questionKeys:
+  - q-churn-rising
+  - q-high-bill
+  - q-why-leaving
+  bindings:
+  - dataProductKey: customer-360
+    type: GROUNDS_ON
+    purpose: Customer 360 provides the account, premise, and service-point context every answer is framed
+      in.
+    metricKeys: []
+  - dataProductKey: customer-360
+    type: QUERIES
+    purpose: Reads the certified churn rate and high-bill risk score to produce the numbers behind each
+      recommendation.
+    metricKeys:
+    - residential_churn_rate
+    - high_bill_risk
+regulatoryConstraints:
+- key: personal-data-minimisation
+  name: Personal data minimisation
+  prompt: This agent reads personal or restricted data. Say what it may return about an individual, and
+    what it must aggregate or withhold.
+  appliesToSensitivity:
+  - CONFIDENTIAL
+  - RESTRICTED
+  appliesToRiskTier: []
+  citation: ''
+- key: human-oversight
+  name: Human oversight of automated decisions
+  prompt: A human must remain accountable for the decision. Say where the human is in the loop and what
+    they see before acting.
+  appliesToSensitivity: []
+  appliesToRiskTier:
+  - decision-support
+  - action-taking
+  citation: ''
+- key: action-authorisation
+  name: Authorisation for automated action
+  prompt: This agent acts in a system. Say who authorises each action class, and what it may never do
+    without a human.
+  appliesToSensitivity: []
+  appliesToRiskTier:
+  - action-taking
+  citation: ''
+- key: record-keeping
+  name: Record-keeping and traceability
+  prompt: Say how long invocations and their citations are retained, and who can retrieve them when asked.
+  appliesToSensitivity: []
+  appliesToRiskTier: []
+  citation: ''
+- key: vulnerable-customer-care
+  name: Vulnerable customer safeguards
+  prompt: Retail energy customers on a priority services register need different handling. Say how this
+    agent identifies them and what it must never recommend for them.
+  appliesToSensitivity:
+  - CONFIDENTIAL
+  - RESTRICTED
+  appliesToRiskTier: []
+  citation: Priority Services Register obligations
+- key: regulatory-metric-definitions
+  name: Regulated metric definitions
+  prompt: Reliability and billing metrics are reported to a regulator. Say which definitions are regulator-approved
+    and how divergence is prevented.
+  appliesToSensitivity: []
+  appliesToRiskTier: []
+  citation: ''
+glossary:
+- term: churn
+  definition: A residential account terminating service, excluding moves within the service territory.
+- term: premise
+  definition: A physical location that can be supplied, independent of who is currently billed for it.
+- term: service point
+  definition: The point of delivery where a meter is or could be installed.
+- term: SAIDI
+  definition: 'System Average Interruption Duration Index: average outage minutes per customer served.'
+- term: unbilled
+  definition: Consumption recorded by a meter read but not yet on an invoice.
+referenceRules:
+  deniedIdentifierPatterns:
+  - ^bronze[._]
+  - ^silver[._]
+  - ^raw[._]
+  - ^stg[._]
+  - ^slv_
+  - ^brz_
+  - _raw$
+  - ^mdm_stage
+  - ^cis_raw
+academy:
+- key: governance-officer
+  title: Governance Officer
+  roleKey: governance-officer
+  summary: What you are signing for, and how the gates, cascades, and evidence packs fit together.
+  credentialKey: governance-officer-credential
+  courses:
+  - key: core
+    title: Governance Officer — core
+    summary: What you are signing for, and how the gates, cascades, and evidence packs fit together.
+    modules:
+    - key: why-gates
+      title: Why an agent is chartered, not deployed
+      body: An agent that nobody chartered has no scope, and an agent with no scope cannot be refused
+        anything. This module covers what a charter has to contain — a mission in one sentence, a scope
+        boundary, an explicit list of what the agent must never do, a risk tier, and a named human owner
+        — and why the out-of-scope list is the field a reviewer reads first. You will look at a real charter
+        in your workspace and find the sentence that would stop a bad question.
+      lab:
+        title: Find the boundary
+        instructions: Open a chartered agent, read its out-of-scope list, and write down one question
+          a user might reasonably ask that the list rules out. Then check the Stage 5 adversarial probes
+          to see whether that question is already tested.
+        target: agent
+      assessment:
+      - question: An agent's charter has an empty out-of-scope list. What does that mean?
+        options:
+        - It can answer anything
+        - It has no boundary, only an aspiration
+        - It is low risk
+        correctIndex: 1
+        explanation: Scope is defined by exclusion. Without stated exclusions there is nothing to refuse.
+      - question: Who may record an approval decision?
+        options:
+        - Anyone with edit access
+        - Only a member holding an approver role named by that stage
+        - The agent's author
+        correctIndex: 1
+        explanation: Roles are checked server-side at every decision; the UI hiding a button is a courtesy,
+          not the enforcement.
+    - key: coverage-and-bindings
+      title: What an agent stands on
+      body: 'Every question an agent claims to answer must be traceable to a certified metric on a governed
+        data product. This module covers the five binding types, why the binding pins the contract version
+        it was approved against, and what the coverage matrix is actually asserting. It also covers the
+        rule that catches people out: agents answer through the semantic layer, never by querying a physical
+        table, and the validator enforces that on bindings, grounding packs, and tool specifications alike.'
+      lab:
+        title: Read the matrix
+        instructions: Open the coverage matrix for an agent and find one question. Follow it to the binding,
+          then to the certified metric, then to the data product and its contract version. Write that
+          chain down in one sentence.
+        target: coverage-matrix
+      assessment:
+      - question: A QUERIES binding names no certified metric. What happens?
+        options:
+        - It is saved with a warning
+        - It is refused and nothing is written
+        - It is saved as a draft
+        correctIndex: 1
+        explanation: A binding that fails validation is not written at all, so there is nothing half-saved
+          to explain later.
+      - question: What does a binding pin?
+        options:
+        - The data product's name
+        - The contract version it was approved against
+        - The metric's value
+        correctIndex: 1
+        explanation: The pin is what makes cascade invalidation a comparison rather than a guess.
+    - key: stale-and-evidence
+      title: When trust expires
+      body: Certification is not permanent. When a bound data product publishes a breaking contract version,
+        every agent pinned to an older major is standing on something that moved, and its certification
+        flips to STALE with re-certification tasks for the roles that signed it. This module covers both
+        cascade directions, why minor and patch bumps deliberately do not cascade, and what the evidence
+        pack contains — including the manifest that lets a reader verify it rather than trust it.
+      lab:
+        title: Verify a pack
+        instructions: Download an evidence pack and find the manifest section. Check that the audit chain
+          verified, and match one artifact content hash in the manifest to the same hash shown on the
+          agent page.
+        target: evidence-pack
+      assessment:
+      - question: A bound product goes from 2.1.0 to 2.2.0. What happens to dependent certifications?
+        options:
+        - They go STALE
+        - Nothing — a minor bump is not breaking
+        - They are revoked
+        correctIndex: 1
+        explanation: Crying wolf on every patch is how governance tooling gets switched off. Only a major
+          bump cascades.
+- key: agent-builder
+  title: Agent Builder
+  roleKey: agent-builder
+  summary: Building an agent that starts with a blocked decision and answers only through certified data.
+  credentialKey: agent-builder-credential
+  courses:
+  - key: core
+    title: Agent Builder — core
+    summary: Building an agent that starts with a blocked decision and answers only through certified
+      data.
+    modules:
+    - key: consumption-first
+      title: Start with the blocked decision
+      body: 'Stage 1 is the most important screen in the product, and the sentence you have to be able
+        to finish honestly is: this person has to decide that, this often, and today they do this instead.
+        This module covers writing personas that name a real role rather than a department, and questions
+        that state the consequence of having no answer — because a question with no consequence is a nice-to-have,
+        and agents built from nice-to-haves are the ones nobody opens twice.'
+      lab:
+        title: Rewrite a weak question
+        instructions: Find a question in your workspace whose consequence-of-no-answer is vague. Rewrite
+          it so it names what actually goes wrong, and check whether the answer shape still makes sense
+          afterwards.
+        target: agent
+      assessment:
+      - question: Why does Stage 2 stay blocked until a persona has three complete questions?
+        options:
+        - To slow people down
+        - Because scope comes from the questions, not the other way round
+        - To fill the form
+        correctIndex: 1
+        explanation: A charter written before the questions is a guess about scope.
+    - key: grounding-and-tools
+      title: Grounding without a back door
+      body: 'A grounding pack is where a raw table reference sneaks back in. This module covers what belongs
+        in one — worked examples, vocabulary, certified metric definitions, and joins between named semantic
+        entities — and what has no field at all, deliberately: there is nowhere to put a query. It also
+        covers tool specifications, where every tool names the binding it acts through and at least one
+        rule for when it must refuse.'
+      lab:
+        title: Break the guardrail on purpose
+        instructions: In a workspace you own, add a disambiguation hint that mentions a Silver or Bronze
+          table and try to save the grounding pack. Read the rejection, then fix it the way the message
+          suggests.
+        target: agent
+      assessment:
+      - question: A tool specification has no refusal rules. Why is that refused?
+        options:
+        - It is a formatting rule
+        - A tool that never refuses has no scope
+        - Refusals are optional
+        correctIndex: 1
+        explanation: The refusal rules are where the charter's boundary becomes something the agent can
+          act on.
+- key: agent-product-owner
+  title: Agent Product Owner
+  roleKey: agent-product-owner
+  summary: Owning an agent's scope, running review rounds, and keeping it honest after publication.
+  credentialKey: agent-product-owner-credential
+  courses:
+  - key: core
+    title: Agent Product Owner — core
+    summary: Owning an agent's scope, running review rounds, and keeping it honest after publication.
+    modules:
+    - key: owning-an-agent
+      title: Being accountable by name
+      body: 'Someone''s name is on every agent, and it is yours. This module covers what you are accepting
+        when you approve a stage, what a re-approval task means when a cascade raises one, and how to
+        run a changes-requested round that gives the author a list of edits rather than a mood. It also
+        covers the parking lot: the place for things worth remembering that must never block a gate.'
+      lab:
+        title: Run a review round
+        instructions: Open a stage under review, anchor a comment to a specific field, and request changes.
+          Then follow what happens to the gate and the task list.
+        target: agent
+      assessment:
+      - question: An artifact changes while a gate is open for review. What should happen?
+        options:
+        - The approval covers the new version
+        - The gate goes stale and must be re-submitted
+        - Nothing
+        correctIndex: 1
+        explanation: A gate approves a snapshot. Signing something the reviewer never read is the failure
+          this prevents.
+- key: data-product-owner
+  title: Data Product Owner
+  roleKey: data-product-owner
+  summary: Certified metrics, contract versions, and what a breaking change does to your consumers.
+  credentialKey: data-product-owner-credential
+  courses:
+  - key: core
+    title: Data Product Owner — core
+    summary: Certified metrics, contract versions, and what a breaking change does to your consumers.
+    modules:
+    - key: contracts-and-cascade
+      title: Publishing a contract version
+      body: 'As a data product owner you decide when consumers of your product have to re-check their
+        work. This module covers what makes a change breaking, why AMX cascades only on a major bump,
+        and what happens on the other side: dependent bindings go STALE, agent certifications flip, and
+        re-certification tasks land with you and the governance officer. It also covers what a certified
+        metric owes its consumers — a definition, a grain, and a semantic reference that is not a table.'
+      lab:
+        title: See who depends on you
+        instructions: Open one of your data products and read the list of agents standing on it. For each,
+          note which binding type it uses and which contract version it is pinned to.
+        target: data-product
+      assessment:
+      - question: You need to remove a column consumers rely on. Which version bump?
+        options:
+        - Patch
+        - Minor
+        - Major
+        correctIndex: 2
+        explanation: Removing something consumers depend on is breaking, and only a major bump makes dependants
+          re-check.
+- key: business-consumer
+  title: Business Consumer
+  roleKey: business-consumer
+  summary: How to read an agent listing and decide whether to rely on it.
+  credentialKey: business-consumer-credential
+  courses:
+  - key: core
+    title: Business Consumer — core
+    summary: How to read an agent listing and decide whether to rely on it.
+    modules:
+    - key: reading-a-listing
+      title: Reading an agent listing
+      body: Before you rely on an agent, you can check what it is allowed to answer, what it stands on,
+        and who signed for it. This module covers the certification badge and the difference between peer-certified
+        and self-attested, the question catalogue and what a missing metric means, and the STALE banner
+        — which tells you the agent's answers may now rest on a contract nobody has re-approved.
+      lab:
+        title: Decide whether to trust it
+        instructions: Open an agent in the marketplace. Find one question you would actually ask, check
+          the metric behind it, and decide whether you would act on that answer without checking anything
+          else.
+        target: agent
+      assessment:
+      - question: An agent's badge says 'self-attested'. What does that tell you?
+        options:
+        - It is uncertified
+        - One person reviewed their own work and signed a statement saying so
+        - It failed review
+        correctIndex: 1
+        explanation: Self-attestation is permitted and recorded — and deliberately distinguished from
+          a second pair of eyes.

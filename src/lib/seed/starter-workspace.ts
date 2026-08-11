@@ -1,208 +1,176 @@
 /**
- * The starter workspace.
+ * The starter workspace, seeded from an industry pack.
  *
  * CLAUDE.md principle 1: a new organisation never lands on an empty screen. It
  * lands on a real agent, mid-lifecycle, standing on real data products with
- * real certified metrics — so the first thing a practitioner sees is the
- * product working, not a form.
+ * real certified metrics — in the vocabulary of its own industry.
  *
  * The same function seeds the showcase tenant, which is deliberate: the demo
  * cannot drift from what a new user actually gets.
  */
 import { commitArtifact } from "@/lib/artifacts/commit";
+import { appendAuditEvent } from "@/lib/audit/append";
 import { declareBinding, setQuestionCoverage } from "@/lib/bindings/service";
 import type { AmxPrismaClient } from "@/lib/db/tenancy";
-import { appendAuditEvent } from "@/lib/audit/append";
+import { loadPack } from "@/lib/packs/load";
+import type { Pack } from "@/lib/packs/schema";
 
 export type StarterSeedInput = {
   organizationId: string;
   workspaceId: string;
   ownerUserId: string;
   ownerName: string;
-  /** Domain to file the agent and products under, when the industry has one. */
-  domainId?: string | null;
+  /** Pack key; falls back to `_generic` when the industry has no pack. */
+  packKey?: string | null;
 };
 
 export type StarterSeedResult = {
   agentId: string;
   agentSlug: string;
-  customer360Id: string;
-  meterToCashId: string;
-  churnMetricId: string;
-  highBillMetricId: string;
+  packKey: string;
+  dataProductIds: Record<string, string>;
+  metricIds: Record<string, string>;
 };
 
-/**
- * Customer 360 and Meter-to-Cash, with the two metrics PROMPT.md names.
- *
- * Contract 2.1.0 on Customer 360 is chosen so the demo can bump it to 3.0.0 and
- * fire the cascade — the STALE flip needs a major boundary to cross.
- */
 export async function seedStarterWorkspace(
   db: AmxPrismaClient,
   input: StarterSeedInput,
-): Promise<StarterSeedResult> {
+): Promise<StarterSeedResult | null> {
+  const wanted = input.packKey ?? "_generic";
+  const loaded = loadPack(wanted);
+  const result = loaded.ok ? loaded : loadPack("_generic");
+  if (!result.ok) return null;
+
+  return seedFromPack(db, input, result.pack);
+}
+
+async function seedFromPack(
+  db: AmxPrismaClient,
+  input: StarterSeedInput,
+  pack: Pack,
+): Promise<StarterSeedResult | null> {
+  const starter = pack.starterAgents[0];
+  if (!starter) return null;
+
   const now = new Date();
+  const dataProductIds: Record<string, string> = {};
+  const metricIds: Record<string, string> = {};
 
-  const customer360 = await db.dataProduct.upsert({
-    where: {
-      organizationId_workspaceId_key: {
+  // ── Data products and their certified metrics ──
+  for (const product of pack.dataProducts) {
+    const domain = await db.domain.findFirst({
+      where: { industryId: pack.key, key: product.domainKey },
+      select: { id: true },
+    });
+
+    const [major, minor, patch] = product.contractVersion.split(".").map(Number);
+
+    const created = await db.dataProduct.upsert({
+      where: {
+        organizationId_workspaceId_key: {
+          organizationId: input.organizationId,
+          workspaceId: input.workspaceId,
+          key: product.key,
+        },
+      },
+      update: {},
+      create: {
         organizationId: input.organizationId,
         workspaceId: input.workspaceId,
-        key: "customer-360",
+        domainId: domain?.id ?? null,
+        key: product.key,
+        name: product.name,
+        description: product.description,
+        ownerName: product.owner,
+        ownerUserId: input.ownerUserId,
+        contractVersion: product.contractVersion,
+        contractMajor: major,
+        contractMinor: minor,
+        contractPatch: patch,
+        semanticModelVersion: product.semanticModelVersion,
+        layer: product.layer,
+        qualityScore: product.qualityScore,
+        lastRefreshedAt: now,
+        freshnessSlaHours: product.freshnessSlaHours ?? null,
+        sensitivity: product.sensitivity,
       },
-    },
-    update: {},
-    create: {
-      organizationId: input.organizationId,
-      workspaceId: input.workspaceId,
-      domainId: input.domainId ?? null,
-      key: "customer-360",
-      name: "Customer 360",
-      description:
-        "Conformed customer view across accounts, premises, and service points. Serves residential retention and billing analytics.",
-      ownerName: "Retail Analytics",
-      ownerUserId: input.ownerUserId,
-      contractVersion: "2.1.0",
-      contractMajor: 2,
-      contractMinor: 1,
-      contractPatch: 0,
-      semanticModelVersion: "2.1.0",
-      layer: "GOLD",
-      qualityScore: 94,
-      lastRefreshedAt: now,
-      freshnessSlaHours: 24,
-      sensitivity: "CONFIDENTIAL",
-    },
-    select: { id: true },
-  });
+      select: { id: true },
+    });
+    dataProductIds[product.key] = created.id;
 
-  const meterToCash = await db.dataProduct.upsert({
-    where: {
-      organizationId_workspaceId_key: {
+    await db.dataProductVersion.upsert({
+      where: {
+        dataProductId_contractVersion: {
+          dataProductId: created.id,
+          contractVersion: product.contractVersion,
+        },
+      },
+      update: {},
+      create: {
         organizationId: input.organizationId,
-        workspaceId: input.workspaceId,
-        key: "meter-to-cash",
+        dataProductId: created.id,
+        contractVersion: product.contractVersion,
+        contractMajor: major,
+        contractMinor: minor,
+        contractPatch: patch,
+        semanticModelVersion: product.semanticModelVersion,
+        changeSummary: `Seeded from the ${pack.name} pack.`,
+        contentHash: `seed-${pack.key}-${product.key}-${product.contractVersion}`,
       },
-    },
-    update: {},
-    create: {
-      organizationId: input.organizationId,
-      workspaceId: input.workspaceId,
-      domainId: input.domainId ?? null,
-      key: "meter-to-cash",
-      name: "Meter-to-Cash",
-      description:
-        "Certified billing lifecycle metrics from meter read through invoice and payment.",
-      ownerName: "Revenue Operations",
-      ownerUserId: input.ownerUserId,
-      contractVersion: "1.4.2",
-      contractMajor: 1,
-      contractMinor: 4,
-      contractPatch: 2,
-      semanticModelVersion: "1.4.0",
-      layer: "GOLD",
-      qualityScore: 88,
-      lastRefreshedAt: now,
-      freshnessSlaHours: 12,
-      sensitivity: "INTERNAL",
-    },
-    select: { id: true },
-  });
+    });
 
-  await db.dataProductVersion.upsert({
-    where: { dataProductId_contractVersion: { dataProductId: customer360.id, contractVersion: "2.1.0" } },
-    update: {},
-    create: {
-      organizationId: input.organizationId,
-      dataProductId: customer360.id,
-      contractVersion: "2.1.0",
-      contractMajor: 2,
-      contractMinor: 1,
-      contractPatch: 0,
-      semanticModelVersion: "2.1.0",
-      changeSummary: "Added premise-level churn attributes and a certified retention grain.",
-      contentHash: "seed-customer-360-2.1.0",
-    },
-  });
-
-  const churn = await db.certifiedMetric.upsert({
-    where: { dataProductId_key: { dataProductId: customer360.id, key: "residential_churn_rate" } },
-    update: {},
-    create: {
-      organizationId: input.organizationId,
-      dataProductId: customer360.id,
-      key: "residential_churn_rate",
-      name: "Residential churn rate",
-      definition:
-        "Share of residential accounts that terminate service in a rolling 90-day window, excluding moves within the service territory.",
-      grain: "account / month",
-      unit: "percent",
-      semanticRef: "semantic.customer_360.residential_churn_rate",
-      certifiedAt: now,
-      certifiedBy: "Retail Analytics",
-    },
-    select: { id: true },
-  });
-
-  const highBill = await db.certifiedMetric.upsert({
-    where: { dataProductId_key: { dataProductId: customer360.id, key: "high_bill_risk" } },
-    update: {},
-    create: {
-      organizationId: input.organizationId,
-      dataProductId: customer360.id,
-      key: "high_bill_risk",
-      name: "High-bill risk score",
-      definition:
-        "Modelled likelihood that an account's next invoice exceeds its trailing 12-month average by more than 40%.",
-      grain: "account / billing cycle",
-      unit: "score 0-1",
-      semanticRef: "semantic.customer_360.high_bill_risk",
-      certifiedAt: now,
-      certifiedBy: "Retail Analytics",
-    },
-    select: { id: true },
-  });
-
-  await db.certifiedMetric.upsert({
-    where: { dataProductId_key: { dataProductId: meterToCash.id, key: "unbilled_revenue" } },
-    update: {},
-    create: {
-      organizationId: input.organizationId,
-      dataProductId: meterToCash.id,
-      key: "unbilled_revenue",
-      name: "Unbilled revenue",
-      definition: "Consumption recorded but not yet invoiced, at the close of each billing cycle.",
-      grain: "billing cycle",
-      unit: "currency",
-      semanticRef: "semantic.meter_to_cash.unbilled_revenue",
-      certifiedAt: now,
-      certifiedBy: "Revenue Operations",
-    },
-  });
+    for (const metric of product.metrics) {
+      const createdMetric = await db.certifiedMetric.upsert({
+        where: { dataProductId_key: { dataProductId: created.id, key: metric.key } },
+        update: {},
+        create: {
+          organizationId: input.organizationId,
+          dataProductId: created.id,
+          key: metric.key,
+          name: metric.name,
+          definition: metric.definition,
+          grain: metric.grain,
+          unit: metric.unit || null,
+          semanticRef: metric.semanticRef,
+          certifiedAt: now,
+          certifiedBy: product.owner,
+        },
+        select: { id: true },
+      });
+      metricIds[metric.key] = createdMetric.id;
+    }
+  }
 
   // ── The starter agent, mid-lifecycle at Stage 3 ──
+  const domain = await db.domain.findFirst({
+    where: { industryId: pack.key, key: starter.domainKey },
+    select: { id: true },
+  });
+
   const agent = await db.agent.upsert({
     where: {
       organizationId_workspaceId_slug: {
         organizationId: input.organizationId,
         workspaceId: input.workspaceId,
-        slug: "customer-churn-advisor",
+        slug: starter.key,
       },
     },
     update: {},
     create: {
       organizationId: input.organizationId,
       workspaceId: input.workspaceId,
-      domainId: input.domainId ?? null,
-      slug: "customer-churn-advisor",
-      name: "Customer Churn Advisor",
-      summary:
-        "Tells a retention analyst which residential accounts are about to leave, and what the certified numbers say about why.",
-      archetype: "Advisor",
-      riskTier: "decision-support",
+      domainId: domain?.id ?? null,
+      slug: starter.key,
+      name: starter.name,
+      summary: starter.summary,
+      archetype: starter.archetype,
+      riskTier: starter.riskTier,
       ownerUserId: input.ownerUserId,
-      sensitivity: "CONFIDENTIAL",
+      sensitivity: highestSensitivity(
+        starter.bindings
+          .map((b) => pack.dataProducts.find((p) => p.key === b.dataProductKey)?.sensitivity)
+          .filter(Boolean) as string[],
+      ),
       currentStageId: "3-data-product-binding",
       status: "IN_PROGRESS",
       certification: "NONE",
@@ -210,97 +178,91 @@ export async function seedStarterWorkspace(
     select: { id: true, slug: true },
   });
 
-  const persona = await db.persona.upsert({
-    where: {
-      organizationId_workspaceId_key: {
+  // ── Personas and questions ──
+  const personaIds: Record<string, string> = {};
+  const usedPersonaKeys = new Set(
+    starter.questionKeys
+      .map((questionKey) => pack.questionLibrary.find((q) => q.key === questionKey)?.personaKey)
+      .filter(Boolean) as string[],
+  );
+  usedPersonaKeys.add(starter.primaryPersonaKey);
+
+  for (const personaKey of usedPersonaKeys) {
+    const persona = pack.personas.find((p) => p.key === personaKey);
+    if (!persona) continue;
+
+    const created = await db.persona.upsert({
+      where: {
+        organizationId_workspaceId_key: {
+          organizationId: input.organizationId,
+          workspaceId: input.workspaceId,
+          key: persona.key,
+        },
+      },
+      update: {},
+      create: {
         organizationId: input.organizationId,
         workspaceId: input.workspaceId,
-        key: "revenue-assurance-analyst",
+        key: persona.key,
+        name: persona.name,
+        kind: persona.kind,
+        ownedDecisions: persona.ownedDecisions,
+        cadence: persona.cadence,
+        currentWorkaround: persona.currentWorkaround,
+        packSourceKey: `${pack.key}:${persona.key}`,
       },
-    },
-    update: {},
-    create: {
-      organizationId: input.organizationId,
-      workspaceId: input.workspaceId,
-      key: "revenue-assurance-analyst",
-      name: "Revenue Assurance Analyst",
-      kind: "BUSINESS",
-      ownedDecisions:
-        "Which residential accounts get a retention offer this cycle, and which billing anomalies get investigated before they become complaints.",
-      cadence: "Weekly, with a daily exception review",
-      currentWorkaround:
-        "Exports three dashboards to a spreadsheet every Monday and reconciles them by hand.",
-    },
-    select: { id: true },
-  });
-
-  await db.agentPersona.upsert({
-    where: { agentId_personaId: { agentId: agent.id, personaId: persona.id } },
-    update: {},
-    create: {
-      organizationId: input.organizationId,
-      agentId: agent.id,
-      personaId: persona.id,
-      isPrimary: true,
-    },
-  });
-
-  const questionSeeds = [
-    {
-      key: "q-churn-rising",
-      text: "Which residential segments are churning faster than last quarter?",
-      intentClass: "trend",
-      consequenceOfNoAnswer:
-        "Retention budget goes to the loudest segment rather than the one actually leaving.",
-      expectedAnswerShape: "Ranked segment list with churn rate and change versus prior quarter",
-      metricKey: "residential_churn_rate",
-    },
-    {
-      key: "q-high-bill",
-      text: "Which accounts are at risk of a high bill next cycle?",
-      intentClass: "forecast",
-      consequenceOfNoAnswer:
-        "The first the analyst hears about it is the complaint, after the invoice has gone out.",
-      expectedAnswerShape: "Account list with risk score and the driver behind it",
-      metricKey: "high_bill_risk",
-    },
-    {
-      key: "q-why-leaving",
-      text: "Why is churn rising in the accounts we already flagged?",
-      intentClass: "diagnosis",
-      consequenceOfNoAnswer:
-        "Retention offers are generic, so they are expensive and they do not work.",
-      expectedAnswerShape: "Contributing factors ranked by effect, each traceable to a metric",
-      metricKey: "residential_churn_rate",
-    },
-  ] as const;
-
-  const questionIds: Record<string, string> = {};
-  for (const [index, seed] of questionSeeds.entries()) {
-    const existing = await db.question.findFirst({
-      where: { agentId: agent.id, text: seed.text },
       select: { id: true },
     });
-    const question =
+    personaIds[persona.key] = created.id;
+
+    await db.agentPersona.upsert({
+      where: { agentId_personaId: { agentId: agent.id, personaId: created.id } },
+      update: {},
+      create: {
+        organizationId: input.organizationId,
+        agentId: agent.id,
+        personaId: created.id,
+        isPrimary: persona.key === starter.primaryPersonaKey,
+      },
+    });
+  }
+
+  const questionIds: Record<string, string> = {};
+  for (const [index, questionKey] of starter.questionKeys.entries()) {
+    const question = pack.questionLibrary.find((q) => q.key === questionKey);
+    if (!question) continue;
+    const personaId = personaIds[question.personaKey];
+    if (!personaId) continue;
+
+    const existing = await db.question.findFirst({
+      where: { agentId: agent.id, packSourceKey: question.key },
+      select: { id: true },
+    });
+
+    const created =
       existing ??
       (await db.question.create({
         data: {
           organizationId: input.organizationId,
           agentId: agent.id,
-          personaId: persona.id,
-          text: seed.text,
-          intentClass: seed.intentClass,
-          consequenceOfNoAnswer: seed.consequenceOfNoAnswer,
-          expectedAnswerShape: seed.expectedAnswerShape,
+          personaId,
+          text: question.text,
+          intentClass: question.intentClass,
+          consequenceOfNoAnswer: question.consequenceOfNoAnswer,
+          expectedAnswerShape: question.expectedAnswerShape,
           priority: index,
-          packSourceKey: seed.key,
+          packSourceKey: question.key,
         },
         select: { id: true },
       }));
-    questionIds[seed.key] = question.id;
+    questionIds[question.key] = created.id;
   }
 
   // ── Stage 1 and 2 artifacts, committed ──
+  const personaEntries = [...usedPersonaKeys]
+    .map((personaKey) => pack.personas.find((p) => p.key === personaKey))
+    .filter(Boolean);
+
   await commitArtifact(db, {
     organizationId: input.organizationId,
     agentId: agent.id,
@@ -311,26 +273,25 @@ export async function seedStarterWorkspace(
     content: {
       schemaVersion: "1.0.0",
       agentSlug: agent.slug,
-      personas: [
-        {
-          key: "revenue-assurance-analyst",
-          name: "Revenue Assurance Analyst",
-          kind: "BUSINESS",
-          ownedDecisions:
-            "Which residential accounts get a retention offer this cycle, and which billing anomalies get investigated before they become complaints.",
-          cadence: "Weekly, with a daily exception review",
-          currentWorkaround:
-            "Exports three dashboards to a spreadsheet every Monday and reconciles them by hand.",
-          questions: questionSeeds.map((seed, index) => ({
-            key: seed.key,
-            text: seed.text,
-            intentClass: seed.intentClass,
-            consequenceOfNoAnswer: seed.consequenceOfNoAnswer,
-            expectedAnswerShape: seed.expectedAnswerShape,
+      personas: personaEntries.map((persona) => ({
+        key: persona!.key,
+        name: persona!.name,
+        kind: persona!.kind,
+        ownedDecisions: persona!.ownedDecisions,
+        cadence: persona!.cadence,
+        currentWorkaround: persona!.currentWorkaround,
+        questions: starter.questionKeys
+          .map((questionKey) => pack.questionLibrary.find((q) => q.key === questionKey))
+          .filter((question) => question?.personaKey === persona!.key)
+          .map((question, index) => ({
+            key: question!.key,
+            text: question!.text,
+            intentClass: question!.intentClass,
+            consequenceOfNoAnswer: question!.consequenceOfNoAnswer,
+            expectedAnswerShape: question!.expectedAnswerShape,
             priority: index,
           })),
-        },
-      ],
+      })),
     },
   });
 
@@ -340,65 +301,73 @@ export async function seedStarterWorkspace(
     stageId: "2-agent-charter",
     kind: "agent-charter",
     authorUserId: input.ownerUserId,
-    runCascade: false,
     content: {
       schemaVersion: "1.0.0",
-      archetype: "Advisor",
-      mission:
-        "Help retention analysts find the residential accounts most likely to leave, and explain why using certified numbers.",
-      scopeBoundary:
-        "Residential accounts in the retail book, using Customer 360 and Meter-to-Cash only. Advises; never contacts a customer and never applies a credit.",
+      archetype: starter.archetype,
+      mission: starter.summary,
+      scopeBoundary: `Answers only the catalogued questions for ${
+        pack.personas.find((p) => p.key === starter.primaryPersonaKey)?.name ?? "its persona"
+      }, using ${starter.bindings
+        .map((b) => pack.dataProducts.find((p) => p.key === b.dataProductKey)?.name)
+        .filter(Boolean)
+        .join(" and ")} only. Advises; it does not act on anyone's behalf.`,
       outOfScope: [
-        "Commercial and industrial accounts",
-        "Making or approving retention offers",
-        "Any customer-facing communication",
+        "Anything outside the catalogued question list",
+        "Taking an action in any operational system",
         "Answering questions about individual employees",
+        "Speculating beyond what the certified metrics support",
       ],
-      valueHypothesis:
-        "Analysts stop reconciling three dashboards by hand and start the week with a ranked, explainable list.",
+      valueHypothesis: `${
+        pack.personas.find((p) => p.key === starter.primaryPersonaKey)?.name ?? "The persona"
+      } stops reconciling reports by hand and starts the cycle with a ranked, explainable list.`,
       successMeasures: [
-        "Time from cycle open to a reviewed retention list under one hour",
         "Every recommendation traceable to a certified metric",
+        "Time from cycle open to a reviewed list under one hour",
       ],
-      riskTier: "decision-support",
+      riskTier: starter.riskTier,
       ownerName: input.ownerName,
-      escalationContact: "Head of Retail Analytics",
+      escalationContact: pack.dataProducts[0]?.owner ?? "The data platform team",
     },
   });
 
   // ── Stage 3 in progress: bindings declared, coverage mapped ──
-  await declareBinding(db, {
-    organizationId: input.organizationId,
-    agentId: agent.id,
-    dataProductId: customer360.id,
-    type: "GROUNDS_ON",
-    purpose:
-      "Customer 360 provides the account, premise, and service-point context every answer is framed in.",
-    metricIds: [],
-    actorUserId: input.ownerUserId,
-  });
+  const bindingIdByProduct: Record<string, string> = {};
+  for (const binding of starter.bindings) {
+    const dataProductId = dataProductIds[binding.dataProductKey];
+    if (!dataProductId) continue;
 
-  const queries = await declareBinding(db, {
-    organizationId: input.organizationId,
-    agentId: agent.id,
-    dataProductId: customer360.id,
-    type: "QUERIES",
-    purpose:
-      "Reads the certified churn rate and high-bill risk score to produce the numbers behind each recommendation.",
-    metricIds: [churn.id, highBill.id],
-    actorUserId: input.ownerUserId,
-  });
-
-  if (queries.ok) {
-    for (const seed of questionSeeds) {
-      const metricId = seed.metricKey === "residential_churn_rate" ? churn.id : highBill.id;
-      await setQuestionCoverage(db, {
-        organizationId: input.organizationId,
-        questionId: questionIds[seed.key],
-        bindingId: queries.bindingId,
-        certifiedMetricId: metricId,
-      });
+    const declared = await declareBinding(db, {
+      organizationId: input.organizationId,
+      agentId: agent.id,
+      dataProductId,
+      type: binding.type,
+      purpose: binding.purpose,
+      metricIds: binding.metricKeys.map((key) => metricIds[key]).filter(Boolean),
+      actorUserId: input.ownerUserId,
+    });
+    if (declared.ok && binding.type === "QUERIES") {
+      bindingIdByProduct[binding.dataProductKey] = declared.bindingId;
     }
+  }
+
+  for (const questionKey of starter.questionKeys) {
+    const question = pack.questionLibrary.find((q) => q.key === questionKey);
+    const questionId = questionIds[questionKey];
+    if (!question || !questionId) continue;
+
+    // Map the question to the QUERIES binding that provides its metric.
+    const owningBinding = starter.bindings.find(
+      (binding) => binding.type === "QUERIES" && binding.metricKeys.includes(question.metricKey),
+    );
+    const bindingId = owningBinding ? bindingIdByProduct[owningBinding.dataProductKey] : undefined;
+    if (!bindingId) continue;
+
+    await setQuestionCoverage(db, {
+      organizationId: input.organizationId,
+      questionId,
+      bindingId,
+      certifiedMetricId: metricIds[question.metricKey] ?? null,
+    });
   }
 
   await appendAuditEvent(db, {
@@ -407,15 +376,24 @@ export async function seedStarterWorkspace(
     subjectType: "Agent",
     subjectId: agent.id,
     actorUserId: input.ownerUserId,
-    payload: { slug: agent.slug, source: "starter-workspace" },
+    payload: { slug: agent.slug, source: "starter-workspace", pack: pack.key },
   });
 
   return {
     agentId: agent.id,
     agentSlug: agent.slug,
-    customer360Id: customer360.id,
-    meterToCashId: meterToCash.id,
-    churnMetricId: churn.id,
-    highBillMetricId: highBill.id,
+    packKey: pack.key,
+    dataProductIds,
+    metricIds,
   };
+}
+
+const SENSITIVITY_ORDER = ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"];
+
+function highestSensitivity(levels: string[]): string {
+  let highest = "PUBLIC";
+  for (const level of levels) {
+    if (SENSITIVITY_ORDER.indexOf(level) > SENSITIVITY_ORDER.indexOf(highest)) highest = level;
+  }
+  return highest;
 }

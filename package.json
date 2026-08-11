@@ -2,7 +2,7 @@
   "name": "amx",
   "version": "0.1.0",
   "private": true,
-  "description": "AMX — the certification and distribution layer for enterprise AI agents",
+  "description": "AMX \u2014 the certification and distribution layer for enterprise AI agents",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
@@ -17,7 +17,9 @@
     "db:reset": "prisma migrate reset --force",
     "seed": "tsx prisma/seed.ts",
     "seed:showcase": "tsx prisma/seed.ts --showcase-only",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "pack:validate": "tsx scripts/validate-packs.ts",
+    "verify": "pnpm typecheck && pnpm lint && pnpm pack:validate && pnpm test && pnpm build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

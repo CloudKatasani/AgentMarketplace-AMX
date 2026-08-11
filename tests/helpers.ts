@@ -24,9 +24,20 @@ export type TestOrg = {
   agentId: string;
 };
 
-/** A seeded organisation: the starter workspace, so tests exercise real data. */
+/**
+ * A seeded organisation with a starter workspace, so tests exercise real data.
+ *
+ * Defaults to the utilities pack because that is the worked example the
+ * governance and demo tests are written against — Customer 360 at CONFIDENTIAL
+ * with the churn and high-bill metrics. Pass `packKey` for anything else.
+ */
 export async function makeOrg(
-  options: { ownerRoles?: RoleKey[]; seedStarter?: boolean; name?: string } = {},
+  options: {
+    ownerRoles?: RoleKey[];
+    seedStarter?: boolean;
+    name?: string;
+    packKey?: string;
+  } = {},
 ): Promise<TestOrg> {
   const ownerUserId = await makeUser("Owner");
   const slug = `org-${randomUUID().slice(0, 8)}`;
@@ -38,6 +49,7 @@ export async function makeOrg(
     ownerName: "Owner",
     ownerRoles: options.ownerRoles,
     seedStarter: options.seedStarter,
+    industryId: options.packKey ?? "utilities",
   });
 
   return {

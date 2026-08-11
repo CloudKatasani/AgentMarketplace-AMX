@@ -6,6 +6,7 @@
  * convention: `no-path-to-approved.test.ts` greps the source tree and fails the
  * build if any other file does. Governance is structural or it is decoration.
  */
+import { assertCredentialForRole } from "@/lib/academy";
 import { track } from "@/lib/analytics";
 import { appendAuditEvent } from "@/lib/audit/append";
 import type { AmxPrismaClient } from "@/lib/db/tenancy";
@@ -58,6 +59,17 @@ export async function recordDecision(
       reason: "NOT_PERMITTED",
       detail: `You do not hold the ${roleName(input.roleKey)} role in this organisation.`,
     };
+  }
+
+  // Credential gating, when the organisation has asked for it. It can only
+  // ever make approval harder, which is why the gate engine may read it.
+  const credential = await assertCredentialForRole(db, {
+    organizationId: input.organizationId,
+    userId: input.actorUserId,
+    roleKey: input.roleKey,
+  });
+  if (!credential.ok) {
+    return { ok: false, reason: "NOT_PERMITTED", detail: credential.detail };
   }
 
   const gate = await db.gate.findUnique({

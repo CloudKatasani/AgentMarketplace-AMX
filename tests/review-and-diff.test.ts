@@ -325,9 +325,9 @@ describe("the changes-requested loop", () => {
 describe("registering a data product from an export", () => {
   const validExport = {
     listing: {
-      key: "network-reliability",
-      name: "Network Reliability",
-      description: "Certified outage and restoration metrics by feeder and premise.",
+      key: "grid-losses",
+      name: "Grid Losses",
+      description: "Certified energy loss metrics by substation and feeder.",
       owner: "Network Operations",
       layer: "GOLD",
       qualityScore: 91,
@@ -339,11 +339,11 @@ describe("registering a data product from an export", () => {
       entities: ["feeder", "premise"],
       metrics: [
         {
-          key: "saidi_minutes",
-          name: "SAIDI",
-          definition: "Average interruption duration per customer served, in minutes.",
-          grain: "feeder / month",
-          semanticRef: "semantic.network_reliability.saidi_minutes",
+          key: "loss_percentage",
+          name: "Grid loss percentage",
+          definition: "Share of energy entering the network that is not billed to a customer.",
+          grain: "substation / month",
+          semanticRef: "semantic.grid_losses.loss_percentage",
           certified: true,
         },
       ],
@@ -367,7 +367,7 @@ describe("registering a data product from an export", () => {
 
     const product = await inOrg(org.organizationId, () =>
       db.dataProduct.findFirst({
-        where: { key: "network-reliability" },
+        where: { key: "grid-losses" },
         select: {
           contractMajor: true,
           metrics: { select: { key: true, certifiedAt: true } },

@@ -33,7 +33,8 @@ import type {
 import { requireSessionContext } from "@/lib/auth/session-context";
 import { computeCoverageMatrix } from "@/lib/bindings/coverage";
 import { withOrg } from "@/lib/db/scope";
-import { STAGE_KEYS, type BindingType, type IntentClass } from "@/lib/enums";
+import { STAGE_KEYS, type BindingType, type IntentClass, type PlanTier } from "@/lib/enums";
+import { featuresFor } from "@/lib/plans/features";
 import { loadStageContext } from "@/lib/lifecycle/context";
 import { evaluateExitCriteria, stageByKey } from "@/lib/lifecycle/stages";
 import { roleName } from "@/lib/roles";
@@ -304,6 +305,7 @@ export default async function StagePage({
           telemetry={data.stageEight.telemetry}
           staleness={data.stageEight.staleness}
           status={data.stageEight.status}
+          exportsEnabled={featuresFor(session.planTier as PlanTier).exports}
         />
       ) : null}
 

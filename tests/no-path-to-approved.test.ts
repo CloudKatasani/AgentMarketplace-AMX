@@ -134,13 +134,64 @@ describe("no path to APPROVED except recordDecision()", () => {
   });
 });
 
+/**
+ * Source with comments removed.
+ *
+ * These assertions are about what the code *does*. A doc comment explaining
+ * that a module deliberately never calls `recordDecision()` should not trip the
+ * test that checks it never calls it.
+ */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
+/** Matches an actual import, not the word appearing in prose. */
+function importsModule(source: string, module: string): boolean {
+  return new RegExp(`(?:from|import)\\s+["']${module.replace("/", "\\/")}`, "m").test(
+    stripComments(source),
+  );
+}
+
+describe("AI assist is propose-only", () => {
+  it("never imports the gate engine", async () => {
+    const files = await sourceFiles(path.join(SRC, "lib", "ai"));
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      expect(
+        importsModule(source, "@/lib/gates"),
+        `${relative(file)} imports the gate engine. AI assist proposes; it never decides.`,
+      ).toBe(false);
+      // Calling it, as opposed to naming it in prose.
+      expect(/\brecordDecision\s*\(/.test(stripComments(source))).toBe(false);
+    }
+  });
+
+  it("is disabled unless a driver is configured", async () => {
+    const previous = process.env.AMX_AI_DRIVER;
+    delete process.env.AMX_AI_DRIVER;
+    const { assistDriver } = await import("@/lib/ai/assist");
+    expect(assistDriver().enabled).toBe(false);
+    if (previous) process.env.AMX_AI_DRIVER = previous;
+  });
+});
+
+describe("billing never reaches the gate engine", () => {
+  it("the gate engine does not import the billing adapter", async () => {
+    const files = await sourceFiles(path.join(SRC, "lib", "gates"));
+    for (const file of files) {
+      expect(importsModule(readFileSync(file, "utf8"), "@/lib/billing")).toBe(false);
+    }
+  });
+});
+
 describe("plan tiers gate features, never governance", () => {
   it("the gate engine does not import plan features", async () => {
     const gateFiles = await sourceFiles(path.join(SRC, "lib", "gates"));
     for (const file of gateFiles) {
       const source = readFileSync(file, "utf8");
       expect(
-        source.includes("@/lib/plans"),
+        importsModule(source, "@/lib/plans"),
         `${relative(file)} imports plan features. Flags gate features, never governance rules.`,
       ).toBe(false);
     }
@@ -149,14 +200,14 @@ describe("plan tiers gate features, never governance", () => {
   it("the lifecycle registry does not import plan features", async () => {
     const files = await sourceFiles(path.join(SRC, "lib", "lifecycle"));
     for (const file of files) {
-      expect(readFileSync(file, "utf8").includes("@/lib/plans")).toBe(false);
+      expect(importsModule(readFileSync(file, "utf8"), "@/lib/plans")).toBe(false);
     }
   });
 
   it("the binding validator does not import plan features", async () => {
     const files = await sourceFiles(path.join(SRC, "lib", "bindings"));
     for (const file of files) {
-      expect(readFileSync(file, "utf8").includes("@/lib/plans")).toBe(false);
+      expect(importsModule(readFileSync(file, "utf8"), "@/lib/plans")).toBe(false);
     }
   });
 });

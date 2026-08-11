@@ -142,6 +142,9 @@ model Organization {
   isShowcase    Boolean   @default(false)
   /// Blocks every mutating path server-side, independent of role.
   isReadOnly    Boolean   @default(false)
+  /// When true, an approver role that names a required credential may only be
+  /// exercised by a member who holds it. A workspace policy, never a default.
+  requireApproverCredentials Boolean @default(false)
   createdAt     DateTime  @default(now())
   archivedAt    DateTime?
 
@@ -757,6 +760,59 @@ model Feedback {
   agent Agent @relation(fields: [agentId], references: [id])
 
   @@index([organizationId, agentId])
+}
+
+// ═══════════════════════════ Academy ═══════════════════════════
+//
+// Paths, courses, and modules are PACK CONTENT — versioned with the code and
+// reviewable in a diff — so only progress and credentials are tenant rows.
+// Copying the content into every tenant would guarantee drift the first time a
+// module is corrected. See docs/phase-4-design.md §2.
+
+model LearningEnrolment {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String
+  /// Pack path key, e.g. "governance-officer".
+  pathKey        String
+  packKey        String
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  @@unique([organizationId, userId, pathKey])
+  @@index([organizationId, pathKey])
+}
+
+model ModuleCompletion {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  pathKey        String
+  courseKey      String
+  moduleKey      String
+  /// Correct answers out of the module's assessment length.
+  score          Int      @default(0)
+  outOf          Int      @default(0)
+  completedAt    DateTime @default(now())
+
+  @@unique([organizationId, userId, pathKey, courseKey, moduleKey])
+  @@index([organizationId, userId])
+}
+
+/// A credential IS an audit event with a profile badge: it is evidence that a
+/// named person demonstrated something, so it lives in the append-only record.
+model Credential {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  credentialKey  String
+  pathKey        String
+  awardedAt      DateTime @default(now())
+  /// The audit event that granted it.
+  auditEventId   String?
+
+  @@unique([organizationId, userId, credentialKey])
+  @@index([organizationId, credentialKey])
 }
 
 // ══════════════════════════════ Analytics ══════════════════════════════

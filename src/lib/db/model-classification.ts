@@ -61,6 +61,9 @@ export const TENANT_SCOPED_MODELS = new Set([
   "QuestionCoverage",
   "Invocation",
   "Feedback",
+  "LearningEnrolment",
+  "ModuleCompletion",
+  "Credential",
   "AnalyticsEvent",
 ]);
 
