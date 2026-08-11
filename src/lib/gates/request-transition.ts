@@ -11,7 +11,7 @@ import { track } from "@/lib/analytics";
 import type { AmxPrismaClient } from "@/lib/db/tenancy";
 import type { StageKey } from "@/lib/enums";
 import { loadStageContext } from "@/lib/lifecycle/context";
-import { evaluateExitCriteria, stageByKey } from "@/lib/lifecycle/stages";
+import { STAGES, evaluateExitCriteria, stageByKey } from "@/lib/lifecycle/stages";
 import type { CriterionResult } from "@/lib/lifecycle/types";
 
 import { computeStageSnapshot } from "./snapshot";
@@ -50,6 +50,32 @@ export async function requestTransition(
 
   const ctx = await loadStageContext(db, input.organizationId, input.agentId, input.stageId);
   if (!ctx) return { ok: false, reason: "NOT_PERMITTED", detail: "Agent not found." };
+
+  // Every earlier stage must already be approved.
+  //
+  // Without this, an agent can be walked straight to Stage 8 and published
+  // while its charter was never signed — the lifecycle would be eight forms
+  // rather than eight gates. Checked here because requestTransition is the
+  // only way a gate opens.
+  const earlier = STAGES.filter((candidate) => candidate.ordinal < stage.ordinal);
+  if (earlier.length > 0) {
+    const approvedStageIds = new Set(
+      (
+        await db.gate.findMany({
+          where: { agentId: input.agentId, status: "APPROVED" },
+          select: { stageId: true },
+        })
+      ).map((gate) => gate.stageId),
+    );
+    const unapproved = earlier.filter((candidate) => !approvedStageIds.has(candidate.key));
+    if (unapproved.length > 0) {
+      return {
+        ok: false,
+        reason: "NOT_PERMITTED",
+        detail: `${stage.name} cannot be submitted until the earlier stages are approved. Still open: ${unapproved.map((candidate) => candidate.name).join(", ")}.`,
+      };
+    }
+  }
 
   const evaluation = evaluateExitCriteria(stage, ctx);
   if (!evaluation.canSubmit) {

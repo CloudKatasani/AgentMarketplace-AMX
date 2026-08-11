@@ -219,6 +219,25 @@ describe("the changes-requested loop", () => {
     const approver = await addMember(org.organizationId, ["agent-product-owner"]);
     const governance = await addMember(org.organizationId, ["governance-officer"]);
 
+    // Stage 1 first: the engine refuses to open a gate while an earlier stage
+    // is unapproved, which is the point of a gated lifecycle.
+    await inOrg(org.organizationId, async () => {
+      const stageOne = await requestTransition(db, {
+        organizationId: org.organizationId,
+        agentId: org.agentId,
+        stageId: "1-consumption-discovery",
+        actorUserId: org.ownerUserId,
+      });
+      if (!stageOne.ok) throw new Error("stage 1 gate did not open");
+      await recordDecision(db, {
+        organizationId: org.organizationId,
+        gateId: stageOne.gateId,
+        actorUserId: approver,
+        roleKey: "agent-product-owner",
+        decision: "APPROVE",
+      });
+    });
+
     // Round 1 · changes requested on the charter.
     const first = await inOrg(org.organizationId, async () => {
       const opened = await requestTransition(db, {

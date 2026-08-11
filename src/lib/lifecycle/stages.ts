@@ -10,8 +10,17 @@
  * No database access, no I/O, no clock — so they can be tested exhaustively and
  * rendered on every page load without cost.
  */
-import type { ArtifactKind, StageKey } from "@/lib/enums";
-import type { AgentCharter } from "@/lib/artifacts/schemas";
+import type { ArtifactKind, SensitivityLevel, StageKey } from "@/lib/enums";
+import { SENSITIVITY_ORDER } from "@/lib/enums";
+import {
+  DATSISV_DIMENSIONS,
+  type AgentCharter,
+  type AgentListing,
+  type DatsisvScorecard,
+  type EvalHarness,
+  type GovernanceReview,
+} from "@/lib/artifacts/schemas";
+import { summariseEvaluation } from "@/lib/stages/evaluation";
 
 import type { CriterionResult, StageContext, StageDefinition } from "./types";
 
@@ -63,6 +72,17 @@ function isQuestionComplete(question: StageContext["questions"][number]): boolea
 }
 
 const MINIMUM_QUESTIONS_PER_PERSONA = 3;
+
+/** Highest classification among the given levels — the Stage 6 inheritance rule. */
+function highestSensitivity(levels: string[]): SensitivityLevel {
+  let highest: SensitivityLevel = "PUBLIC";
+  for (const level of levels) {
+    if (SENSITIVITY_ORDER.indexOf(level as SensitivityLevel) > SENSITIVITY_ORDER.indexOf(highest)) {
+      highest = level as SensitivityLevel;
+    }
+  }
+  return highest;
+}
 
 function personasMeetingFloor(ctx: StageContext) {
   return ctx.personas.filter(
@@ -352,9 +372,6 @@ export const STAGES: readonly StageDefinition[] = [
     },
   },
 
-  // Stages 5–8: definitions ship in Phase 1 because the lifecycle rail and the
-  // Stage table need them. Their exit criteria land with their authoring UI in
-  // Phase 3 — no speculative criteria. See docs/phase-1-design.md §5.6.
   {
     key: "5-evaluation-harness",
     ordinal: 5,
@@ -367,7 +384,63 @@ export const STAGES: readonly StageDefinition[] = [
     soloAttestation: solo(
       "I have reviewed the evaluation results against the golden set and the adversarial probes, and I accept them as evidence of fitness.",
     ),
-    exitCriteria: () => [],
+    exitCriteria: (ctx) => {
+      const harness = ctx.artifacts["eval-harness"]?.content as EvalHarness | undefined;
+      const summary = harness ? summariseEvaluation(harness) : null;
+
+      return [
+        artifactCriterion(ctx, "eval-harness", "Evaluation harness committed", 5),
+        {
+          key: "stage5.golden-set-covers-questions",
+          label: "The golden set covers every question the agent claims to answer",
+          satisfied: (summary?.goldenCount ?? 0) >= ctx.questions.length && ctx.questions.length > 0,
+          detail: summary
+            ? `${summary.goldenCount} golden case${summary.goldenCount === 1 ? "" : "s"} against ${ctx.questions.length} questions.`
+            : "No harness yet. The golden set is seeded from Stage 1, so this is a review rather than an invention.",
+          fix: { label: "Open the harness", href: stagePath(ctx, 5) },
+          blocking: true,
+        },
+        {
+          key: "stage5.adversarial-probes-present",
+          label: "Adversarial probes are included",
+          satisfied: (summary?.adversarialCount ?? 0) > 0,
+          detail:
+            (summary?.adversarialCount ?? 0) > 0
+              ? `${summary!.adversarialCount} probes: out-of-scope, prompt injection, and raw-data access.`
+              : "An evaluation that only asks the questions the agent is good at proves nothing about its boundary.",
+          fix: { label: "Open the harness", href: stagePath(ctx, 5) },
+          blocking: true,
+        },
+        {
+          key: "stage5.every-case-scored",
+          label: "Every case has been scored",
+          satisfied: summary !== null && summary.unscored.length === 0,
+          detail:
+            summary === null
+              ? "Nothing to score yet."
+              : summary.unscored.length === 0
+                ? `All ${summary.scoredCount} cases scored.`
+                : `${summary.unscored.length} case${summary.unscored.length === 1 ? "" : "s"} unscored: ${list(summary.unscored)}.`,
+          fix: { label: "Score the cases", href: stagePath(ctx, 5) },
+          blocking: true,
+        },
+        {
+          key: "stage5.thresholds-met",
+          label: "Scores meet the declared thresholds",
+          satisfied: summary?.meetsThresholds ?? false,
+          detail:
+            summary === null
+              ? "No results yet."
+              : summary.meetsThresholds
+                ? `Groundedness ${summary.averages.groundedness.toFixed(1)}, faithfulness ${summary.averages.faithfulness.toFixed(1)}, citations ${summary.averages.citationCorrectness.toFixed(1)}; ${Math.round(summary.adversarialRefusalRate * 100)}% of probes refused.`
+                : summary.failures.length > 0
+                  ? summary.failures[0].reason
+                  : "Some averages are below the thresholds set on the harness.",
+          fix: { label: "Review the results", href: stagePath(ctx, 5) },
+          blocking: true,
+        },
+      ];
+    },
   },
   {
     key: "6-governance-and-guardrails",
@@ -381,7 +454,66 @@ export const STAGES: readonly StageDefinition[] = [
     soloAttestation: solo(
       "I have reviewed the access policy, sensitivity inheritance, and rollback runbook, and I accept them as sufficient for this agent's risk tier.",
     ),
-    exitCriteria: () => [],
+    exitCriteria: (ctx) => {
+      const review = ctx.artifacts["governance-review"]?.content as
+        | GovernanceReview
+        | undefined;
+
+      const boundSensitivities = ctx.bindings
+        .map((binding) => ctx.dataProducts.find((p) => p.id === binding.dataProductId))
+        .filter(Boolean)
+        .map((product) => product!.sensitivity);
+      const expected = highestSensitivity(boundSensitivities);
+
+      return [
+        artifactCriterion(ctx, "governance-review", "Governance review committed", 6),
+        {
+          key: "stage6.access-policy-named",
+          label: "Invocation access names an audience",
+          satisfied: (review?.invocationAccess?.length ?? 0) > 0,
+          detail:
+            (review?.invocationAccess?.length ?? 0) > 0
+              ? `Restricted to ${list(review!.invocationAccess)}.`
+              : "Say who may invoke this agent. \u201cAnyone\u201d is not an access policy.",
+          fix: { label: "Open the review", href: stagePath(ctx, 6) },
+          blocking: true,
+        },
+        {
+          key: "stage6.sensitivity-inherited",
+          label: "Sensitivity matches what the agent stands on",
+          satisfied: review?.inheritedSensitivity === expected,
+          detail:
+            review?.inheritedSensitivity === expected
+              ? `Inherited ${expected} from the bound data products.`
+              : `This agent stands on ${expected} data, so it inherits ${expected}. Sensitivity is inherited, not chosen.`,
+          fix: { label: "Open the review", href: stagePath(ctx, 6) },
+          blocking: true,
+        },
+        {
+          key: "stage6.kill-switch-owner",
+          label: "A named kill-switch owner and a rollback plan",
+          satisfied: Boolean(review?.killSwitchOwner && review?.rollbackPlan),
+          detail: review?.killSwitchOwner
+            ? `${review.killSwitchOwner} can switch it off.`
+            : "Someone has to be able to switch it off, by name, without a meeting.",
+          fix: { label: "Open the review", href: stagePath(ctx, 6) },
+          blocking: true,
+        },
+        {
+          key: "stage6.action-taking-has-constraints",
+          label: "Action-taking agents address their regulatory constraints",
+          satisfied:
+            ctx.agent.riskTier !== "action-taking" ||
+            (review?.regulatoryConstraints?.length ?? 0) > 0,
+          detail:
+            ctx.agent.riskTier === "action-taking"
+              ? `${review?.regulatoryConstraints?.length ?? 0} constraint(s) addressed.`
+              : "This agent advises rather than acts, so the action-authorisation constraint does not apply.",
+          fix: { label: "Open the review", href: stagePath(ctx, 6) },
+          blocking: true,
+        },
+      ];
+    },
   },
   {
     key: "7-certification",
@@ -395,7 +527,64 @@ export const STAGES: readonly StageDefinition[] = [
     soloAttestation: solo(
       "I have scored every DATSIS+V dimension against cited artifact evidence, and I accept this certification on my own attestation.",
     ),
-    exitCriteria: () => [],
+    exitCriteria: (ctx) => {
+      const scorecard = ctx.artifacts["datsisv-scorecard"]?.content as
+        | DatsisvScorecard
+        | undefined;
+      const scored = new Set((scorecard?.scores ?? []).map((s) => s.dimension));
+      const missing = DATSISV_DIMENSIONS.filter((d) => !scored.has(d));
+      const minimum = scorecard?.minimumScore ?? 3;
+      const below = (scorecard?.scores ?? []).filter((s) => s.score < minimum);
+      const uncited = (scorecard?.scores ?? []).filter((s) => s.citations.length === 0);
+
+      return [
+        artifactCriterion(ctx, "datsisv-scorecard", "DATSIS+V scorecard committed", 7),
+        {
+          key: "stage7.all-dimensions-scored",
+          label: "Every DATSIS+V dimension is scored",
+          satisfied: missing.length === 0 && scored.size > 0,
+          detail:
+            missing.length === 0 && scored.size > 0
+              ? `All ${scored.size} dimensions scored.`
+              : `Not yet scored: ${list(missing.map((d) => d.replace(/-/g, " ")))}.`,
+          fix: { label: "Open the scorecard", href: stagePath(ctx, 7) },
+          blocking: true,
+        },
+        {
+          key: "stage7.every-score-cited",
+          label: "Every score cites artifact evidence",
+          satisfied: uncited.length === 0,
+          detail:
+            uncited.length === 0
+              ? "Each dimension points at an artifact version and a field."
+              : `${uncited.length} dimension(s) scored without evidence. A score with no citation is an opinion.`,
+          fix: { label: "Open the scorecard", href: stagePath(ctx, 7) },
+          blocking: true,
+        },
+        {
+          key: "stage7.scores-meet-minimum",
+          label: `No dimension below the minimum of ${minimum}`,
+          satisfied: below.length === 0 && scored.size > 0,
+          detail:
+            below.length === 0
+              ? "All dimensions are at or above the minimum."
+              : `Below minimum: ${list(below.map((s) => `${s.dimension} (${s.score})`))}.`,
+          fix: { label: "Open the scorecard", href: stagePath(ctx, 7) },
+          blocking: true,
+        },
+        {
+          key: "stage7.value-stated",
+          label: "The +V is stated: what value this delivers",
+          satisfied: (scorecard?.valueStatement?.length ?? 0) >= 20,
+          detail:
+            (scorecard?.valueStatement?.length ?? 0) >= 20
+              ? "Value statement recorded."
+              : "DATSIS is about fitness; the +V is about whether it was worth building. Say what decision moves.",
+          fix: { label: "Open the scorecard", href: stagePath(ctx, 7) },
+          blocking: true,
+        },
+      ];
+    },
   },
   {
     key: "8-publish-and-operate",
@@ -409,7 +598,49 @@ export const STAGES: readonly StageDefinition[] = [
     soloAttestation: solo(
       "I have reviewed the listing, the telemetry plan, and the retirement path, and I accept publication on my own attestation.",
     ),
-    exitCriteria: () => [],
+    exitCriteria: (ctx) => {
+      const listing = ctx.artifacts["agent-listing"]?.content as AgentListing | undefined;
+
+      return [
+        artifactCriterion(ctx, "agent-listing", "Listing committed", 8),
+        {
+          key: "stage8.certified-before-publish",
+          label: "The agent is certified",
+          satisfied:
+            ctx.agent.certification === "PEER_CERTIFIED" ||
+            ctx.agent.certification === "SELF_ATTESTED",
+          detail:
+            ctx.agent.certification === "STALE"
+              ? "The certification went stale when something it stands on changed. Re-certify before publishing."
+              : ctx.agent.certification === "NONE"
+                ? "Nothing is published without a certification — that is the whole point of the marketplace."
+                : `Certified: ${ctx.agent.certification === "PEER_CERTIFIED" ? "peer-certified" : "self-attested"}.`,
+          fix: { label: "Go to certification", href: stagePath(ctx, 7) },
+          blocking: true,
+        },
+        {
+          key: "stage8.listing-names-audience",
+          label: "The listing says who it is for and how to reach support",
+          satisfied: (listing?.audience?.length ?? 0) > 0 && Boolean(listing?.supportContact),
+          detail:
+            (listing?.audience?.length ?? 0) > 0
+              ? `For ${list(listing!.audience)}; support via ${listing!.supportContact}.`
+              : "A listing nobody can place themselves in gets used by the wrong people.",
+          fix: { label: "Open the listing", href: stagePath(ctx, 8) },
+          blocking: true,
+        },
+        {
+          key: "stage8.no-stale-bindings",
+          label: "Nothing it stands on is stale",
+          satisfied: ctx.bindings.every((binding) => binding.status !== "STALE"),
+          detail: ctx.bindings.some((binding) => binding.status === "STALE")
+            ? "A binding is waiting on re-approval. Publishing over a stale binding is how an agent ends up answering from a contract nobody approved."
+            : "All bindings are current.",
+          fix: { label: "Review bindings", href: stagePath(ctx, 3) },
+          blocking: true,
+        },
+      ];
+    },
   },
 ];
 

@@ -13,6 +13,10 @@ import { delimitedRows, lines, repeatedRows, text } from "@/lib/forms";
 import { saveCharter } from "@/lib/stages/charter";
 import { archiveQuestion, savePersona, saveQuestion } from "@/lib/stages/consumption";
 import { saveGroundingPack, saveToolSpecs } from "@/lib/stages/grounding";
+import { saveEvalHarness } from "@/lib/stages/evaluation";
+import { saveGovernanceReview } from "@/lib/stages/governance";
+import { loadEvidenceSources, saveScorecard } from "@/lib/stages/certification";
+import { deprecateAgent, saveListing } from "@/lib/stages/publish";
 import { addStageComment, resolveComment } from "@/lib/stages/review";
 
 import type { ActionState } from "../../actions";
@@ -473,6 +477,266 @@ export async function resolveCommentAction(
 
   refresh(agentId, stageId);
   return { ok: true, message: "Marked resolved." };
+}
+
+// ───────────────────────── Stage 5 ─────────────────────────
+
+/**
+ * Scoring is manual by design: a human reads the answer and types a number.
+ * The form posts every case at once so a part-scored harness is never stored.
+ */
+export async function saveEvalHarnessAction(
+  _previous: ActionState | undefined,
+  formData: FormData,
+): Promise<ActionState> {
+  const guarded = await guard();
+  if (!guarded.ok) return guarded.state;
+
+  const agentId = text(formData, "agentId");
+  const agentSlug = text(formData, "agentSlug");
+  const { session } = guarded;
+
+  const cases = repeatedRows(formData, "case", [
+    "key",
+    "questionKey",
+    "question",
+    "expectedAnswer",
+    "metricKey",
+    "kind",
+    "probeClass",
+  ]);
+
+  const scores = repeatedRows(formData, "score", [
+    "caseKey",
+    "groundedness",
+    "faithfulness",
+    "citationCorrectness",
+    "refusedCorrectly",
+    "note",
+  ])
+    .filter((row) => row.groundedness !== "" || row.refusedCorrectly === "on")
+    .map((row) => ({
+      caseKey: row.caseKey,
+      groundedness: Number(row.groundedness || 0),
+      faithfulness: Number(row.faithfulness || 0),
+      citationCorrectness: Number(row.citationCorrectness || 0),
+      refusedCorrectly: row.refusedCorrectly === "on",
+      note: row.note,
+      scoredBy: session.userName || session.userEmail,
+    }));
+
+  const result = await withOrg(session.organizationId, (db) =>
+    saveEvalHarness(db, {
+      organizationId: session.organizationId,
+      agentId,
+      actorUserId: session.userId,
+      harness: {
+        schemaVersion: "1.0.0",
+        agentSlug,
+        cases: cases.map((row) => ({
+          key: row.key,
+          questionKey: row.questionKey,
+          question: row.question,
+          expectedAnswer: row.expectedAnswer,
+          metricKey: row.metricKey,
+          kind: row.kind === "adversarial" ? "adversarial" : "golden",
+          probeClass: row.probeClass || "none",
+        })),
+        scores,
+        thresholds: {
+          minGroundedness: Number(text(formData, "minGroundedness") || 4),
+          minFaithfulness: Number(text(formData, "minFaithfulness") || 4),
+          minCitationCorrectness: Number(text(formData, "minCitationCorrectness") || 4),
+          minAdversarialRefusalRate: Number(text(formData, "minAdversarialRefusalRate") || 1),
+        },
+      },
+    }),
+  );
+
+  refresh(agentId, "5-evaluation-harness");
+  if (result.ok) return { ok: true, message: `Evaluation committed as version ${result.versionNumber}.` };
+  return { ok: false, message: result.errors.map((e) => e.message).join(" ") };
+}
+
+// ───────────────────────── Stage 6 ─────────────────────────
+
+export async function saveGovernanceAction(
+  _previous: ActionState | undefined,
+  formData: FormData,
+): Promise<ActionState> {
+  const guarded = await guard();
+  if (!guarded.ok) return guarded.state;
+
+  const agentId = text(formData, "agentId");
+  const { session } = guarded;
+
+  const result = await withOrg(session.organizationId, (db) =>
+    saveGovernanceReview(db, {
+      organizationId: session.organizationId,
+      agentId,
+      actorUserId: session.userId,
+      review: {
+        schemaVersion: "1.0.0",
+        agentSlug: text(formData, "agentSlug"),
+        invocationAccess: lines(formData.get("invocationAccess")),
+        inheritedSensitivity: text(formData, "inheritedSensitivity"),
+        regulatoryConstraints: repeatedRows(formData, "constraint", [
+          "key",
+          "name",
+          "howAddressed",
+        ]),
+        incidentRunbook: text(formData, "incidentRunbook"),
+        rollbackPlan: text(formData, "rollbackPlan"),
+        killSwitchOwner: text(formData, "killSwitchOwner"),
+      },
+    }),
+  );
+
+  refresh(agentId, "6-governance-and-guardrails");
+  if (result.ok) {
+    return {
+      ok: true,
+      message: `Governance review committed as version ${result.versionNumber}. Sensitivity inherited: ${result.inherited}.`,
+    };
+  }
+  return { ok: false, message: result.errors.map((e) => e.message).join(" ") };
+}
+
+// ───────────────────────── Stage 7 ─────────────────────────
+
+export async function saveScorecardAction(
+  _previous: ActionState | undefined,
+  formData: FormData,
+): Promise<ActionState> {
+  const guarded = await guard();
+  if (!guarded.ok) return guarded.state;
+
+  const agentId = text(formData, "agentId");
+  const { session } = guarded;
+
+  const rows = repeatedRows(formData, "dim", ["dimension", "score", "note", "citation"]);
+
+  const result = await withOrg(session.organizationId, async (db) => {
+    // The citation select posts "kind::version::path" — a value this server
+    // wrote — so the excerpt is looked up here rather than trusted from the form.
+    const sources = await loadEvidenceSources(db, agentId);
+
+    const scores = rows
+      .filter((row) => row.dimension && row.citation)
+      .map((row) => {
+        const [artifactKind, versionNumber, ...pathParts] = row.citation.split("::");
+        const fieldPath = pathParts.join("::");
+        const excerpt =
+          sources
+            .find(
+              (source) =>
+                source.artifactKind === artifactKind &&
+                source.versionNumber === Number(versionNumber),
+            )
+            ?.fields.find((field) => field.path === fieldPath)?.excerpt ?? "";
+
+        return {
+          dimension: row.dimension,
+          score: Number(row.score || 0),
+          note: row.note,
+          citations: [
+            {
+              artifactKind,
+              versionNumber: Number(versionNumber || 1),
+              fieldPath,
+              excerpt,
+            },
+          ],
+        };
+      });
+
+    return saveScorecard(db, {
+      organizationId: session.organizationId,
+      agentId,
+      actorUserId: session.userId,
+      scorecard: {
+        schemaVersion: "1.0.0",
+        agentSlug: text(formData, "agentSlug"),
+        minimumScore: Number(text(formData, "minimumScore") || 3),
+        valueStatement: text(formData, "valueStatement"),
+        scores,
+      },
+    });
+  });
+
+  refresh(agentId, "7-certification");
+  if (result.ok) {
+    return {
+      ok: true,
+      message: `Scorecard committed as version ${result.versionNumber}.${result.readiness.ready ? " Ready for certification." : ""}`,
+    };
+  }
+  return { ok: false, message: result.errors.map((e) => e.message).join(" ") };
+}
+
+// ───────────────────────── Stage 8 ─────────────────────────
+
+export async function saveListingAction(
+  _previous: ActionState | undefined,
+  formData: FormData,
+): Promise<ActionState> {
+  const guarded = await guard();
+  if (!guarded.ok) return guarded.state;
+
+  const agentId = text(formData, "agentId");
+  const { session } = guarded;
+
+  const result = await withOrg(session.organizationId, (db) =>
+    saveListing(db, {
+      organizationId: session.organizationId,
+      agentId,
+      actorUserId: session.userId,
+      listing: {
+        schemaVersion: "1.0.0",
+        agentSlug: text(formData, "agentSlug"),
+        headline: text(formData, "headline"),
+        audience: lines(formData.get("audience")),
+        howToInvoke: text(formData, "howToInvoke"),
+        supportContact: text(formData, "supportContact"),
+        deprecation: null,
+      },
+    }),
+  );
+
+  refresh(agentId, "8-publish-and-operate");
+  if (result.ok) return { ok: true, message: `Listing committed as version ${result.versionNumber}.` };
+  return { ok: false, message: result.errors.map((e) => e.message).join(" ") };
+}
+
+export async function deprecateAgentAction(
+  _previous: ActionState | undefined,
+  formData: FormData,
+): Promise<ActionState> {
+  const guarded = await guard();
+  if (!guarded.ok) return guarded.state;
+
+  const agentId = text(formData, "agentId");
+  const { session } = guarded;
+
+  const result = await withOrg(session.organizationId, (db) =>
+    deprecateAgent(db, {
+      organizationId: session.organizationId,
+      agentId,
+      actorUserId: session.userId,
+      reason: text(formData, "reason"),
+      retireAfter: text(formData, "retireAfter"),
+      replacementSlug: text(formData, "replacementSlug") || undefined,
+    }),
+  );
+
+  refresh(agentId, "8-publish-and-operate");
+  if (result.ok) {
+    return {
+      ok: true,
+      message: "Deprecated. A task has been raised to tell its consumers, and the listing stays up.",
+    };
+  }
+  return { ok: false, message: result.detail };
 }
 
 // ───────────────────── Onboarding tour ─────────────────────

@@ -18,6 +18,7 @@ import { runAsOrg, runAsSystem } from "../src/lib/db/tenancy";
 import { hashPassword } from "../src/lib/auth";
 import { createOrganization } from "../src/lib/organizations/create";
 import { recordDecision, requestTransition } from "../src/lib/gates";
+import { walkToPublished } from "../src/lib/seed/showcase";
 import { STAGES } from "../src/lib/lifecycle/stages";
 import { ROLES, type RoleKey } from "../src/lib/roles";
 
@@ -40,6 +41,8 @@ const DEMO_USERS: SeedUser[] = [
   { email: "yusuf.privacy@amx.demo", name: "Yusuf Demir", roles: ["privacy-officer"] },
   { email: "kim.security@amx.demo", name: "Kim Sato", roles: ["security-officer"] },
   { email: "dana.consumer@amx.demo", name: "Dana Kovač", roles: ["business-consumer"] },
+  // The account behind "Explore the live demo" on the landing page.
+  { email: "demo.viewer@amx.demo", name: "Demo Visitor", roles: ["business-consumer"] },
 ];
 
 async function seedReferenceData(): Promise<void> {
@@ -189,57 +192,35 @@ async function seedShowcase(): Promise<void> {
 
     const agent = await db.agent.findFirst({
       where: { slug: "customer-churn-advisor" },
-      select: { id: true },
+      select: { id: true, slug: true },
     });
     if (!agent) throw new Error("Starter agent missing — seedStarterWorkspace did not run.");
 
-    // Stage 1 · approved by the Agent Product Owner.
-    const stage1 = await requestTransition(db, {
+    const persona = await db.persona.findFirst({
+      where: { key: "revenue-assurance-analyst" },
+      select: { id: true },
+    });
+
+    const dataOwnerId = users.get("sam.data@amx.demo")!;
+
+    // ── The full eight-stage walk, through the real engine ──
+    //
+    // Shared with the demo-arc test (src/lib/seed/showcase.ts), so a change
+    // that breaks the arc fails a test rather than a sales call.
+    const walk = await walkToPublished(db, {
       organizationId,
       agentId: agent.id,
-      stageId: "1-consumption-discovery",
-      actorUserId: builderId,
+      agentSlug: agent.slug,
+      builderId,
+      productOwnerId,
+      dataOwnerId,
+      governanceId,
     });
-    if (stage1.ok) {
-      await recordDecision(db, {
-        organizationId,
-        gateId: stage1.gateId,
-        actorUserId: productOwnerId,
-        roleKey: "agent-product-owner",
-        decision: "APPROVE",
-        comment: "Personas match the decisions this team actually owns.",
-      });
-    } else {
-      console.warn("Stage 1 did not open:", stage1);
+    if (!walk.ok) {
+      console.warn(`Showcase: stopped at ${walk.failedAt} — ${walk.detail}`);
     }
 
-    // Stage 2 · needs both the Agent Product Owner and the Governance Officer.
-    const stage2 = await requestTransition(db, {
-      organizationId,
-      agentId: agent.id,
-      stageId: "2-agent-charter",
-      actorUserId: builderId,
-    });
-    if (stage2.ok) {
-      await recordDecision(db, {
-        organizationId,
-        gateId: stage2.gateId,
-        actorUserId: productOwnerId,
-        roleKey: "agent-product-owner",
-        decision: "APPROVE",
-        comment: "Scope boundary and out-of-scope list are specific enough to hold.",
-      });
-      await recordDecision(db, {
-        organizationId,
-        gateId: stage2.gateId,
-        actorUserId: governanceId,
-        roleKey: "governance-officer",
-        decision: "APPROVE",
-        comment: "Decision-support tier is right; it advises and never contacts a customer.",
-      });
-    } else {
-      console.warn("Stage 2 did not open:", stage2);
-    }
+    await seedOperations(agent.id, organizationId, persona?.id ?? null);
   });
 
   // Read-only last: assertMutable refuses everything above once this is set.
@@ -249,6 +230,83 @@ async function seedShowcase(): Promise<void> {
   });
 
   console.info(`Showcase tenant seeded: ${organizationId}`);
+}
+
+/**
+ * A published agent that has never been used is not a demo, it is a diagram.
+ * These invocations give the operate screens something to say.
+ */
+async function seedOperations(
+  agentId: string,
+  organizationId: string,
+  personaId: string | null,
+): Promise<void> {
+  const existing = await db.invocation.count({ where: { agentId } });
+  if (existing > 0) return;
+
+  const pattern: { intentClass: string; outcome: string; metricKey: string | null }[] = [
+    ...Array.from({ length: 34 }, () => ({
+      intentClass: "trend",
+      outcome: "answered",
+      metricKey: "residential_churn_rate",
+    })),
+    ...Array.from({ length: 21 }, () => ({
+      intentClass: "forecast",
+      outcome: "answered",
+      metricKey: "high_bill_risk",
+    })),
+    ...Array.from({ length: 12 }, () => ({
+      intentClass: "diagnosis",
+      outcome: "answered",
+      metricKey: "residential_churn_rate",
+    })),
+    // Refusals are a health signal: the boundary is doing its job.
+    ...Array.from({ length: 7 }, () => ({
+      intentClass: "lookup",
+      outcome: "refused",
+      metricKey: null,
+    })),
+    ...Array.from({ length: 3 }, () => ({
+      intentClass: "recommendation",
+      outcome: "escalated",
+      metricKey: null,
+    })),
+  ];
+
+  const now = Date.now();
+  for (const [index, row] of pattern.entries()) {
+    await db.invocation.create({
+      data: {
+        organizationId,
+        agentId,
+        personaId,
+        intentClass: row.intentClass,
+        outcome: row.outcome,
+        metricKey: row.metricKey,
+        latencyMs: 800 + (index % 17) * 90,
+        createdAt: new Date(now - index * 5 * 3_600_000),
+      },
+    });
+  }
+
+  await db.feedback.create({
+    data: {
+      organizationId,
+      agentId,
+      rating: 1,
+      body: "Saves me the Monday morning reconciliation. The metric name next to each number is what makes it usable in the review.",
+      personaId,
+    },
+  });
+  await db.feedback.create({
+    data: {
+      organizationId,
+      agentId,
+      rating: 0,
+      body: "Refused a commercial-account question, which is correct, but the message could point at who does own that.",
+      personaId,
+    },
+  });
 }
 
 async function main(): Promise<void> {

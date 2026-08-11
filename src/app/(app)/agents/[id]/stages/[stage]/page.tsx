@@ -10,12 +10,26 @@ import { StageOne } from "@/components/stages/stage-one";
 import { StageTwo } from "@/components/stages/stage-two";
 import { StageThree } from "@/components/stages/stage-three";
 import { StageFour } from "@/components/stages/stage-four";
+import {
+  StageEight,
+  StageFive,
+  StageSeven,
+  StageSix,
+} from "@/components/stages/stage-five-to-eight";
 import { Button } from "@/components/ui/button";
 import { Band, Muted, PageTitle, Panel, SectionTitle } from "@/components/ui/primitives";
 import { Badge, InfoBanner, StaleBanner } from "@/components/ui/status";
 import { VersionHistory } from "@/components/version-history";
 import { diffArtifacts } from "@/lib/artifacts/diff";
-import type { AgentCharter, GroundingPack, ToolSpecs } from "@/lib/artifacts/schemas";
+import type {
+  AgentCharter,
+  AgentListing,
+  DatsisvScorecard,
+  EvalHarness,
+  GovernanceReview,
+  GroundingPack,
+  ToolSpecs,
+} from "@/lib/artifacts/schemas";
 import { requireSessionContext } from "@/lib/auth/session-context";
 import { computeCoverageMatrix } from "@/lib/bindings/coverage";
 import { withOrg } from "@/lib/db/scope";
@@ -24,7 +38,11 @@ import { loadStageContext } from "@/lib/lifecycle/context";
 import { evaluateExitCriteria, stageByKey } from "@/lib/lifecycle/stages";
 import { roleName } from "@/lib/roles";
 import { hasQualifyingPersona } from "@/lib/stages/charter";
+import { draftScorecard, loadEvidenceSources } from "@/lib/stages/certification";
+import { draftEvalHarness, summariseEvaluation } from "@/lib/stages/evaluation";
+import { loadGovernanceContext } from "@/lib/stages/governance";
 import { draftGroundingPack } from "@/lib/stages/grounding";
+import { loadStaleness, loadTelemetry } from "@/lib/stages/publish";
 import { loadStageComments, stageLockState } from "@/lib/stages/review";
 
 import { submitStageAction } from "../../actions";
@@ -88,7 +106,39 @@ export default async function StagePage({
     const stageFour =
       stageId === "4-grounding-and-tools" ? await loadStageFour(db, id) : null;
 
-    return { agent, ctx, stageRuns, openGate, lock, versions, personaFloorMet, stageThree, stageFour };
+    const stageFive =
+      stageId === "5-evaluation-harness" ? await draftEvalHarness(db, id) : null;
+    const stageSix =
+      stageId === "6-governance-and-guardrails" ? await loadGovernanceContext(db, id) : null;
+    const stageSeven =
+      stageId === "7-certification"
+        ? { sources: await loadEvidenceSources(db, id) }
+        : null;
+    const stageEight =
+      stageId === "8-publish-and-operate"
+        ? {
+            telemetry: await loadTelemetry(db, id),
+            staleness: await loadStaleness(db, id),
+            status: (await db.agent.findUnique({ where: { id }, select: { status: true } }))
+              ?.status ?? "DRAFT",
+          }
+        : null;
+
+    return {
+      agent,
+      ctx,
+      stageRuns,
+      openGate,
+      lock,
+      versions,
+      personaFloorMet,
+      stageThree,
+      stageFour,
+      stageFive,
+      stageSix,
+      stageSeven,
+      stageEight,
+    };
   });
 
   if (!data?.agent) notFound();
@@ -202,14 +252,59 @@ export default async function StagePage({
         />
       ) : null}
 
-      {stage.ordinal >= 5 ? (
-        <Panel>
-          <SectionTitle>Artifacts</SectionTitle>
-          <Muted className="mt-2">
-            {stage.requiredArtifacts.join(", ")} — this stage&rsquo;s authoring screens arrive in
-            Phase 3.
-          </Muted>
-        </Panel>
+      {stageId === "5-evaluation-harness" && data.stageFive ? (
+        (() => {
+          const committed = ctx?.artifacts["eval-harness"]?.content as EvalHarness | undefined;
+          const harness = committed ?? data.stageFive!;
+          return (
+            <StageFive
+              agentId={agent.id}
+              agentSlug={agent.slug}
+              locked={editingLocked}
+              harness={harness}
+              summary={committed ? summariseEvaluation(committed) : null}
+            />
+          );
+        })()
+      ) : null}
+
+      {stageId === "6-governance-and-guardrails" && data.stageSix ? (
+        <StageSix
+          agentId={agent.id}
+          agentSlug={agent.slug}
+          locked={editingLocked}
+          review={
+            (ctx?.artifacts["governance-review"]?.content as GovernanceReview | undefined) ?? null
+          }
+          inheritance={data.stageSix.inheritance}
+          constraints={data.stageSix.constraints}
+        />
+      ) : null}
+
+      {stageId === "7-certification" && data.stageSeven ? (
+        <StageSeven
+          agentId={agent.id}
+          agentSlug={agent.slug}
+          locked={editingLocked}
+          sources={data.stageSeven.sources}
+          scorecard={
+            (ctx?.artifacts["datsisv-scorecard"]?.content as DatsisvScorecard | undefined) ??
+            draftScorecard(agent.slug, data.stageSeven.sources)
+          }
+          evidenceHref={`/api/agents/${agent.id}/evidence`}
+        />
+      ) : null}
+
+      {stageId === "8-publish-and-operate" && data.stageEight ? (
+        <StageEight
+          agentId={agent.id}
+          agentSlug={agent.slug}
+          locked={editingLocked}
+          listing={(ctx?.artifacts["agent-listing"]?.content as AgentListing | undefined) ?? null}
+          telemetry={data.stageEight.telemetry}
+          staleness={data.stageEight.staleness}
+          status={data.stageEight.status}
+        />
       ) : null}
 
       <VersionHistory

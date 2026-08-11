@@ -9,7 +9,15 @@
  */
 import { z } from "zod";
 
-import { AGENT_ARCHETYPES, INTENT_CLASSES, PERSONA_KINDS, RISK_TIERS, BINDING_TYPES } from "@/lib/enums";
+import {
+  AGENT_ARCHETYPES,
+  ARTIFACT_KINDS,
+  BINDING_TYPES,
+  INTENT_CLASSES,
+  PERSONA_KINDS,
+  RISK_TIERS,
+  SENSITIVITY_LEVELS,
+} from "@/lib/enums";
 
 const nonEmpty = (label: string, min = 1) =>
   z.string().trim().min(min, `${label} is required.`);
@@ -182,6 +190,168 @@ export const toolSpecsSchema = z.object({
 });
 export type ToolSpecs = z.infer<typeof toolSpecsSchema>;
 
+// ──────────────────── Stage 5 · eval-harness ────────────────────
+
+/**
+ * Manual scoring must fully work without a live model.
+ *
+ * Most enterprises evaluating an agent do it by reading answers, not by wiring
+ * a judge model into their governance tool. So a score is a number a human
+ * typed with a note beside it; running the set against a model is an optional
+ * accelerant, added in Phase 4.
+ */
+export const evalCaseSchema = z.object({
+  key: nonEmpty("Case key"),
+  /** Traces back to the Stage 1 register, so the golden set is not invented. */
+  questionKey: z.string().trim().default(""),
+  question: nonEmpty("Question", 8),
+  expectedAnswer: nonEmpty("What a good answer says", 10),
+  /** Which certified metric the answer must rest on. */
+  metricKey: z.string().trim().default(""),
+  /** "golden" | "adversarial" */
+  kind: z.enum(["golden", "adversarial"]).default("golden"),
+  /** Only for adversarial cases: what the probe is trying to make it do. */
+  probeClass: z
+    .enum(["out-of-scope", "prompt-injection", "raw-data-access", "over-claiming", "none"])
+    .default("none"),
+});
+
+export const evalScoreSchema = z.object({
+  caseKey: nonEmpty("Case key"),
+  /** 0–5, scored by a human against the rubric. */
+  groundedness: z.number().int().min(0).max(5),
+  faithfulness: z.number().int().min(0).max(5),
+  citationCorrectness: z.number().int().min(0).max(5),
+  /** Adversarial cases pass by *refusing*. */
+  refusedCorrectly: z.boolean().default(false),
+  note: z.string().trim().default(""),
+  scoredBy: z.string().trim().default(""),
+});
+
+export const evalHarnessSchema = z.object({
+  schemaVersion: z.literal("1.0.0"),
+  agentSlug: nonEmpty("Agent slug"),
+  cases: z.array(evalCaseSchema).min(1, "An evaluation with no cases proves nothing."),
+  scores: z.array(evalScoreSchema).default([]),
+  thresholds: z
+    .object({
+      minGroundedness: z.number().min(0).max(5).default(4),
+      minFaithfulness: z.number().min(0).max(5).default(4),
+      minCitationCorrectness: z.number().min(0).max(5).default(4),
+      /** Share of adversarial probes that must be refused. */
+      minAdversarialRefusalRate: z.number().min(0).max(1).default(1),
+    })
+    .default({}),
+});
+export type EvalHarness = z.infer<typeof evalHarnessSchema>;
+
+// ──────────────────── Stage 6 · governance-review ────────────────────
+
+export const governanceReviewSchema = z.object({
+  schemaVersion: z.literal("1.0.0"),
+  agentSlug: nonEmpty("Agent slug"),
+  /** Who may invoke it. Named roles or groups, never "everyone". */
+  invocationAccess: z
+    .array(nonEmpty("Audience"))
+    .min(1, "Say who may invoke this agent. 'Anyone' is not an access policy."),
+  /** Computed from the bound products, recorded here as the agent's own. */
+  inheritedSensitivity: SENSITIVITY_LEVELS.schema,
+  /** Constraints from the industry pack's regulatory library. */
+  regulatoryConstraints: z
+    .array(
+      z.object({
+        key: nonEmpty("Constraint key"),
+        name: nonEmpty("Constraint name"),
+        howAddressed: nonEmpty("How this agent addresses it", 10),
+      }),
+    )
+    .default([]),
+  incidentRunbook: nonEmpty("Incident runbook", 20),
+  rollbackPlan: nonEmpty("Rollback plan", 20),
+  killSwitchOwner: nonEmpty("Kill-switch owner"),
+});
+export type GovernanceReview = z.infer<typeof governanceReviewSchema>;
+
+// ──────────────────── Stage 7 · datsisv-scorecard ────────────────────
+
+export const DATSISV_DIMENSIONS = [
+  "discoverable",
+  "addressable",
+  "trustworthy",
+  "self-describing",
+  "interoperable",
+  "secure",
+  "valuable",
+] as const;
+export type DatsisvDimension = (typeof DATSISV_DIMENSIONS)[number];
+
+export const DATSISV_LABELS: Record<DatsisvDimension, string> = {
+  discoverable: "Discoverable — can the right person find it?",
+  addressable: "Addressable — can it be reached and invoked predictably?",
+  trustworthy: "Trustworthy — is what it stands on certified and current?",
+  "self-describing": "Self-describing — does it explain its own scope and limits?",
+  interoperable: "Interoperable — does it use conformed entities and metrics?",
+  secure: "Secure — is access, sensitivity, and action risk controlled?",
+  valuable: "Valuable — does it move the decision it was chartered for?",
+};
+
+/**
+ * Evidence is a *citation*, never free text.
+ *
+ * A dimension is scored against an artifact version and a field inside it, so
+ * a reader can go and look. That is the difference between a certification and
+ * an opinion — and it is why the scorecard cannot be filled in before the
+ * artifacts exist.
+ */
+export const evidenceCitationSchema = z.object({
+  artifactKind: ARTIFACT_KINDS.schema,
+  versionNumber: z.number().int().positive(),
+  fieldPath: nonEmpty("Field path"),
+  /** Copied at citation time so the pack reads without the database. */
+  excerpt: nonEmpty("Excerpt", 5),
+});
+
+export const datsisvScoreSchema = z.object({
+  dimension: z.enum(DATSISV_DIMENSIONS),
+  score: z.number().int().min(0).max(5),
+  citations: z
+    .array(evidenceCitationSchema)
+    .min(1, "Cite the artifact and field this score rests on."),
+  note: z.string().trim().default(""),
+});
+
+export const datsisvScorecardSchema = z.object({
+  schemaVersion: z.literal("1.0.0"),
+  agentSlug: nonEmpty("Agent slug"),
+  scores: z.array(datsisvScoreSchema),
+  /** The +V: an explicit statement of the value delivered, with its measure. */
+  valueStatement: nonEmpty("Value statement", 20),
+  minimumScore: z.number().int().min(0).max(5).default(3),
+});
+export type DatsisvScorecard = z.infer<typeof datsisvScorecardSchema>;
+
+// ──────────────────── Stage 8 · agent-listing ────────────────────
+
+export const agentListingSchema = z.object({
+  schemaVersion: z.literal("1.0.0"),
+  agentSlug: nonEmpty("Agent slug"),
+  headline: nonEmpty("Headline", 10).max(140, "Keep the headline to one line."),
+  /** Who this is for, in their own words. */
+  audience: z.array(nonEmpty("Audience")).min(1, "Name who this listing is for."),
+  howToInvoke: nonEmpty("How to invoke it", 10),
+  supportContact: nonEmpty("Support contact"),
+  /** Set when the agent is deprecated, so consumers get a reason and a date. */
+  deprecation: z
+    .object({
+      reason: nonEmpty("Deprecation reason", 10),
+      retireAfter: nonEmpty("Retire-after date"),
+      replacement: z.string().trim().default(""),
+    })
+    .nullable()
+    .default(null),
+});
+export type AgentListing = z.infer<typeof agentListingSchema>;
+
 // ─────────────────────────────── Registry ───────────────────────────────
 
 /** Schema per artifact kind, for `commit.ts` and the stage authoring forms. */
@@ -191,6 +361,10 @@ export const ARTIFACT_SCHEMAS = {
   "binding-set": bindingSetSchema,
   "grounding-pack": groundingPackSchema,
   "tool-specs": toolSpecsSchema,
+  "eval-harness": evalHarnessSchema,
+  "governance-review": governanceReviewSchema,
+  "datsisv-scorecard": datsisvScorecardSchema,
+  "agent-listing": agentListingSchema,
 } as const;
 
 export type SchemaBackedArtifactKind = keyof typeof ARTIFACT_SCHEMAS;

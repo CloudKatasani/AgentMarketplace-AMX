@@ -253,6 +253,8 @@ model Agent {
   tasks          Task[]
   comments       Comment[]
   changeRequests ChangeRequest[]
+  invocations    Invocation[]
+  feedback       Feedback[]
 
   @@unique([organizationId, workspaceId, slug])
   @@index([organizationId, status])
@@ -651,9 +653,10 @@ model Persona {
   createdAt         DateTime  @default(now())
   archivedAt        DateTime?
 
-  workspace Workspace      @relation(fields: [workspaceId], references: [id])
-  agents    AgentPersona[]
-  questions Question[]
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id])
+  agents      AgentPersona[]
+  questions   Question[]
+  invocations Invocation[]
 
   @@unique([organizationId, workspaceId, key])
   @@index([organizationId])
@@ -713,6 +716,47 @@ model QuestionCoverage {
 
   @@unique([questionId, bindingId])
   @@index([organizationId])
+}
+
+// ═══════════════════════ Stage 8 · operate ═══════════════════════
+
+/// One use of a published agent. Written by the invocation API (Phase 4) and
+/// by the demo seed; AMX does not execute agents, it records that they ran.
+model Invocation {
+  id             String   @id @default(cuid())
+  organizationId String
+  agentId        String
+  personaId      String?
+  /// Intent class of the question asked, for the intent mix.
+  intentClass    String
+  /// "answered" | "refused" | "escalated" | "error"
+  outcome        String   @default("answered")
+  /// Certified metric the answer rested on, when there was one.
+  metricKey      String?
+  latencyMs      Int?
+  createdAt      DateTime @default(now())
+
+  agent   Agent    @relation(fields: [agentId], references: [id])
+  persona Persona? @relation(fields: [personaId], references: [id])
+
+  @@index([organizationId, agentId, createdAt])
+}
+
+model Feedback {
+  id             String   @id @default(cuid())
+  organizationId String
+  agentId        String
+  /// -1, 0, or 1 — deliberately coarse; prose is what is useful.
+  rating         Int      @default(0)
+  body           String
+  authorUserId   String?
+  personaId      String?
+  createdAt      DateTime @default(now())
+  resolvedAt     DateTime?
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([organizationId, agentId])
 }
 
 // ══════════════════════════════ Analytics ══════════════════════════════

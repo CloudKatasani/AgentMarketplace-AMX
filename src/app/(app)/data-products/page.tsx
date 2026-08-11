@@ -81,7 +81,11 @@ export default async function DataProductsPage() {
             <Panel key={product.id} className="space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <SectionTitle>{product.name}</SectionTitle>
+                  <SectionTitle>
+                    <Link href={`/data-products/${product.id}`} className="no-underline">
+                      {product.name}
+                    </Link>
+                  </SectionTitle>
                   <Muted className="mt-1 max-w-prose">{product.description}</Muted>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">

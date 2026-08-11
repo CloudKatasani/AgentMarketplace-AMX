@@ -19,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session) redirect("/signin");
 
   const nav = [
+    { href: "/marketplace", label: "Marketplace" },
     { href: "/agents", label: "Agents" },
     { href: "/data-products", label: "Data products" },
     { href: "/audit", label: "Audit trail" },

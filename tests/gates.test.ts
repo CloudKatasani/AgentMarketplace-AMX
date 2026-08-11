@@ -98,6 +98,55 @@ describe("requestTransition", () => {
   });
 });
 
+describe("sequential gating", () => {
+  it("refuses to open a stage while an earlier one is unapproved", async () => {
+    const org = await makeOrg({ ownerRoles: ["agent-builder"] });
+
+    const result = await inOrg(org.organizationId, () =>
+      requestTransition(db, {
+        organizationId: org.organizationId,
+        agentId: org.agentId,
+        stageId: "3-data-product-binding",
+        actorUserId: org.ownerUserId,
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok || result.reason !== "NOT_PERMITTED") return;
+    // Without this, an agent can be walked straight to publication with an
+    // unsigned charter — eight forms rather than eight gates.
+    expect(result.detail).toContain("Consumption Discovery");
+    expect(result.detail).toContain("Agent Charter");
+  });
+
+  it("opens the next stage once the previous one is approved", async () => {
+    const org = await makeOrg({ ownerRoles: ["agent-builder"] });
+    const approver = await addMember(org.organizationId, ["agent-product-owner"]);
+
+    const opened = await openStage1(org);
+    if (!opened.ok) throw new Error("stage 1 gate did not open");
+    await inOrg(org.organizationId, () =>
+      recordDecision(db, {
+        organizationId: org.organizationId,
+        gateId: opened.gateId,
+        actorUserId: approver,
+        roleKey: "agent-product-owner",
+        decision: "APPROVE",
+      }),
+    );
+
+    const stageTwo = await inOrg(org.organizationId, () =>
+      requestTransition(db, {
+        organizationId: org.organizationId,
+        agentId: org.agentId,
+        stageId: "2-agent-charter",
+        actorUserId: org.ownerUserId,
+      }),
+    );
+    expect(stageTwo.ok).toBe(true);
+  });
+});
+
 describe("recordDecision · role enforcement", () => {
   it("refuses a decision from a role the user does not hold", async () => {
     const org = await makeOrg({ ownerRoles: ["agent-builder"] });

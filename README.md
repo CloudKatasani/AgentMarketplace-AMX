@@ -6,10 +6,10 @@ human approved it.
 `CLAUDE.md` is binding for work in this repository. `PROMPT.md` holds the phase plan,
 `PITCH.md` the positioning, `SKILLS.md` the skill register.
 
-**Status: Phase 2 complete** — Phase 1's tenancy, gate engine, binding validator, cascade, and
-audit chain, plus the Stage 1–4 authoring screens, the review loop (field-anchored comments,
-parking lot, version diff, stage lock), data-product import, and the onboarding wizard with its
-guided tour. Marketplace, demo mode, and Stages 5–8 land in Phase 3.
+**Status: Phase 3 complete** — the full eight-stage lifecycle, the marketplace with its persona
+lens and product-view inversion, signed evidence packs (PDF and Word), and demo mode protected by
+a test that walks the seven-minute arc. Academy, industry packs, exports, and AI assist land in
+Phase 4.
 
 ---
 
@@ -49,7 +49,11 @@ needed — every enum is a `String` column whose domain lives in `src/lib/enums.
 7. **Import a data product** from a DPF/ADPM export — refused if it is served from a raw layer.
 8. **Publish a breaking contract version** and watch dependent certifications flip to STALE with
    re-certification tasks — immediately, on the next render.
-9. **Read the audit trail**, hash-chained and verified on screen.
+9. **Certify an agent** against DATSIS+V with every score citing an artifact field, then
+   **download the evidence pack** as PDF or Word with a verifiable manifest.
+10. **Browse the marketplace** through a persona lens, and invert it: from a data product, every
+    agent standing on it.
+11. **Read the audit trail**, hash-chained and verified on screen.
 
 ## Commands
 

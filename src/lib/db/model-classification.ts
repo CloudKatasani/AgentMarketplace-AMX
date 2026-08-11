@@ -59,6 +59,8 @@ export const TENANT_SCOPED_MODELS = new Set([
   "AgentPersona",
   "Question",
   "QuestionCoverage",
+  "Invocation",
+  "Feedback",
   "AnalyticsEvent",
 ]);
 
