@@ -1,0 +1,52 @@
+/**
+ * The only file in the product that contains a colour value.
+ *
+ * Values are space-separated RGB channels rather than hex strings so Tailwind's
+ * alpha modifiers work (`bg-panel/60`, `ring-brand-accent/40`). The hex from
+ * CLAUDE.md is on every line so the table stays readable and auditable.
+ *
+ * White-label: an ENTERPRISE organisation overrides these same names via
+ * `Organization.themeOverride`. Rebranding is editing this file; re-skinning a
+ * tenant is overriding these names. There is no third mechanism.
+ */
+
+:root {
+  /* ── Brand · Capgemini light theme ───────────────────────────── */
+  --brand-primary: 0 112 173;      /* #0070AD  primary buttons, header band, active nav, links */
+  --brand-accent: 18 171 219;      /* #12ABDB  progress, highlights, selected states, focus ring */
+  --brand-ink: 0 55 95;            /* #00375F  headings and body text on light surfaces */
+  --brand-deep: 0 90 135;          /* #005A87  primary hover/pressed, chart depth series */
+
+  /* ── Surfaces ─────────────────────────────────────────────────── */
+  --surface: 255 255 255;          /* #FFFFFF  page background */
+  --panel: 234 243 251;            /* #EAF3FB  cards, hero panels, onboarding surfaces */
+  --band: 220 234 246;             /* #DCEAF6  synthesis strips, table header rows, info banners */
+
+  /* ── Semantic states · WCAG AA on white, outside the brand palette ── */
+  --success: 30 123 52;            /* #1E7B34  passed criteria, certified badges */
+  --warning: 180 83 9;             /* #B45309  warning and STALE */
+  --warning-tint: 254 243 199;     /* #FEF3C7  STALE background */
+  --danger: 185 28 28;             /* #B91C1C  danger and veto */
+  --ai-draft: 109 40 217;          /* #6D28D9  AI_DRAFT marker, paired with a dashed border */
+
+  /* ── Neutrals derived from the ink, so borders stay in-family ── */
+  --border: 205 221 235;           /* #CDDDEB  hairlines, table rules, input borders */
+  --muted: 91 122 148;             /* #5B7A94  secondary text, metadata */
+
+  /* ── Typography ───────────────────────────────────────────────── */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --text-page-title: 1.75rem;      /* 28 */
+  --leading-page-title: 2.25rem;   /* 36 */
+  --text-section-title: 1.125rem;  /* 18 */
+  --leading-section-title: 1.75rem;/* 28 */
+  --text-body: 0.875rem;           /* 14 */
+  --leading-body: 1.375rem;        /* 22 */
+
+  /* ── Density · comfortable by default, compact on tables ─────── */
+  --row-py: 0.75rem;
+  --radius: 0.5rem;
+}
+
+[data-density="compact"] {
+  --row-py: 0.375rem;
+}

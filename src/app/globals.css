@@ -1,0 +1,42 @@
+@import "../styles/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: rgb(var(--surface));
+    color: rgb(var(--brand-ink));
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: rgb(var(--brand-ink));
+    text-wrap: balance;
+  }
+
+  a {
+    color: rgb(var(--brand-primary));
+  }
+
+  /* Focus rings use the accent, everywhere, without per-component work. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--brand-accent));
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background-color: rgb(var(--band));
+  }
+}

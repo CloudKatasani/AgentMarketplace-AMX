@@ -1,0 +1,730 @@
+// AMX — Prisma schema.
+//
+// Governance lives here, not in the handlers. The uniqueness constraints, the
+// append-only tables, and the version pins ARE the enforcement; src/lib/gates
+// and src/lib/bindings only have to be the single writer.
+//
+// SQLite is the default datasource (Postgres via docker-compose). Prisma does
+// not support native enums on SQLite, so every enum is a String column whose
+// domain is owned by a Zod schema in src/lib/enums.ts — one source of truth,
+// portable to Postgres unchanged. See docs/phase-1-design.md §5.1.
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ══════════════════════════ Global reference data ══════════════════════════
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String?
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  archivedAt    DateTime?
+
+  memberships Membership[]
+  accounts    Account[]
+  sessions    Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+/// Seeded from packs/_generic/roles.yaml. Global: the role vocabulary is
+/// product-level, role assignment is tenant-level (see MembershipRole).
+model Role {
+  id                    String  @id
+  name                  String
+  description           String
+  /// May sign approvals at a gate that names this role.
+  isApprover            Boolean @default(false)
+  /// May cast a blocking veto (Privacy / Security Officer).
+  isVeto                Boolean @default(false)
+  /// Academy credential required before the role may be held (Phase 4).
+  requiresCredentialKey String?
+  ordinal               Int
+
+  memberships MembershipRole[]
+  approvals   Approval[]
+  tasks       Task[]
+}
+
+/// Lookup mirror of src/lib/lifecycle/stages.ts, seeded from it so StageRun,
+/// Artifact and Gate can carry a real foreign key. stages.ts remains the single
+/// source of truth for behaviour; a test asserts this table matches it.
+model Stage {
+  id      String @id
+  ordinal Int    @unique
+  name    String
+  purpose String
+
+  stageRuns StageRun[]
+  artifacts Artifact[]
+  gates     Gate[]
+}
+
+model Industry {
+  id          String @id
+  name        String
+  packVersion String
+  summary     String
+
+  domains       Domain[]
+  organizations Organization[]
+}
+
+model Domain {
+  id         String @id
+  industryId String
+  key        String
+  name       String
+
+  industry     Industry      @relation(fields: [industryId], references: [id])
+  agents       Agent[]
+  dataProducts DataProduct[]
+
+  @@unique([industryId, key])
+}
+
+// ══════════════════════════════ Tenancy ══════════════════════════════
+
+model Organization {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  name          String
+  /// "FREE" | "TEAM" | "ENTERPRISE" — feature flags only, never governance.
+  planTier      String    @default("FREE")
+  industryId    String?
+  /// ENTERPRISE white-label: JSON overriding the same names as tokens.css.
+  themeOverride String?
+  /// Showcase tenant: the demo-mode entry point, seeded idempotently.
+  isShowcase    Boolean   @default(false)
+  /// Blocks every mutating path server-side, independent of role.
+  isReadOnly    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  archivedAt    DateTime?
+
+  industry    Industry?    @relation(fields: [industryId], references: [id])
+  memberships Membership[]
+  workspaces  Workspace[]
+  invitations Invitation[]
+
+  @@index([isShowcase])
+}
+
+model Membership {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String
+  createdAt      DateTime  @default(now())
+  archivedAt     DateTime?
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  user         User             @relation(fields: [userId], references: [id])
+  roles        MembershipRole[]
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+}
+
+model MembershipRole {
+  id             String   @id @default(cuid())
+  organizationId String
+  membershipId   String
+  roleId         String
+  grantedAt      DateTime @default(now())
+
+  membership Membership @relation(fields: [membershipId], references: [id])
+  role       Role       @relation(fields: [roleId], references: [id])
+
+  @@unique([membershipId, roleId])
+  @@index([organizationId])
+}
+
+model Invitation {
+  id             String    @id @default(cuid())
+  organizationId String
+  email          String
+  roleId         String
+  token          String    @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, email])
+}
+
+model Workspace {
+  id             String    @id @default(cuid())
+  organizationId String
+  slug           String
+  name           String
+  createdAt      DateTime  @default(now())
+  archivedAt     DateTime?
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  agents       Agent[]
+  dataProducts DataProduct[]
+  personas     Persona[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+}
+
+// ═══════════════════════════ Agent lifecycle ═══════════════════════════
+
+model Agent {
+  id             String    @id @default(cuid())
+  organizationId String
+  workspaceId    String
+  slug           String
+  name           String
+  summary        String    @default("")
+  /// "Analyst" | "Advisor" | "Monitor" | "Operator" | "Navigator" | "Educator"
+  archetype      String?
+  /// "informational" | "decision-support" | "action-taking"
+  riskTier       String?
+  domainId       String?
+  ownerUserId    String?
+  /// Highest classification inherited from bound products (Stage 6).
+  sensitivity    String?
+  currentStageId String
+  /// "DRAFT" | "IN_PROGRESS" | "PUBLISHED" | "DEPRECATED" | "RETIRED"
+  status         String    @default("DRAFT")
+  /// "NONE" | "SELF_ATTESTED" | "PEER_CERTIFIED" | "STALE"
+  certification  String    @default("NONE")
+  /// Plain-language cause shown in the STALE banner; null unless STALE.
+  staleReason    String?
+  staleAt        DateTime?
+  createdAt      DateTime  @default(now())
+  archivedAt     DateTime?
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id])
+  domain         Domain?         @relation(fields: [domainId], references: [id])
+  stageRuns      StageRun[]
+  artifacts      Artifact[]
+  gates          Gate[]
+  bindings       Binding[]
+  questions      Question[]
+  personas       AgentPersona[]
+  tasks          Task[]
+  comments       Comment[]
+  changeRequests ChangeRequest[]
+
+  @@unique([organizationId, workspaceId, slug])
+  @@index([organizationId, status])
+  @@index([organizationId, certification])
+}
+
+model StageRun {
+  id             String    @id @default(cuid())
+  organizationId String
+  agentId        String
+  stageId        String
+  /// "NOT_STARTED" | "DRAFT" | "SUBMITTED" | "CHANGES_REQUESTED" | "APPROVED" | "STALE"
+  status         String    @default("NOT_STARTED")
+  startedAt      DateTime?
+  submittedAt    DateTime?
+  approvedAt     DateTime?
+  stalledAt      DateTime?
+  staleReason    String?
+
+  agent Agent  @relation(fields: [agentId], references: [id])
+  stage Stage  @relation(fields: [stageId], references: [id])
+  gates Gate[]
+
+  @@unique([agentId, stageId])
+  @@index([organizationId])
+}
+
+// ══════════════════════ Artifacts (immutable versions) ══════════════════════
+
+model Artifact {
+  id               String    @id @default(cuid())
+  organizationId   String
+  agentId          String
+  stageId          String
+  /// See ARTIFACT_KINDS in src/lib/enums.ts.
+  kind             String
+  /// Denormalised pointer for cheap reads; every version is still in the table.
+  currentVersionId String?   @unique
+  createdAt        DateTime  @default(now())
+  archivedAt       DateTime?
+
+  agent          Agent             @relation(fields: [agentId], references: [id])
+  stage          Stage             @relation(fields: [stageId], references: [id])
+  versions       ArtifactVersion[] @relation("ArtifactVersions")
+  currentVersion ArtifactVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+
+  @@unique([agentId, kind])
+  @@index([organizationId])
+}
+
+/// APPEND-ONLY. Written exclusively by src/lib/artifacts/commit.ts.
+model ArtifactVersion {
+  id             String   @id @default(cuid())
+  organizationId String
+  artifactId     String
+  versionNumber  Int
+  /// sha256 over canonicalised content — the identity of the version.
+  contentHash    String
+  /// Canonical JSON. YAML/Markdown mirrors are derived, not stored.
+  content        String
+  /// Semver of the Zod schema that validated this content.
+  schemaVersion  String
+  /// "yaml" | "json" | "markdown" — serialisation used for the workspace/ mirror.
+  format         String
+  mirrorPath     String
+  authorUserId   String?
+  /// AI assist output: propose-only, rendered with the AI_DRAFT treatment.
+  isAiDraft      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  artifact  Artifact  @relation("ArtifactVersions", fields: [artifactId], references: [id])
+  currentOf Artifact? @relation("CurrentVersion")
+  comments  Comment[]
+
+  @@unique([artifactId, versionNumber])
+  @@unique([artifactId, contentHash])
+  @@index([organizationId])
+}
+
+// ═══════════════════════ Gates and approvals ═══════════════════════
+
+model Gate {
+  id             String    @id @default(cuid())
+  organizationId String
+  agentId        String
+  stageId        String
+  stageRunId     String
+  /// Re-opened after CHANGES_REQUESTED or a cascade: round increments.
+  round          Int       @default(1)
+  /// "PEER" | "SOLO_ATTESTATION"
+  mode           String    @default("PEER")
+  /// "OPEN" | "APPROVED" | "CHANGES_REQUESTED" | "VETOED" | "STALE"
+  status         String    @default("OPEN")
+  /// Distinct approver roles required to satisfy this gate.
+  quorum         Int       @default(1)
+  /// sha256 over the sorted contentHashes of the artifact versions under review.
+  /// A gate approves a SNAPSHOT, so any re-version provably invalidates it.
+  snapshotHash   String
+  openedAt       DateTime  @default(now())
+  decidedAt      DateTime?
+  stalledAt      DateTime?
+  staleReason    String?
+
+  agent     Agent      @relation(fields: [agentId], references: [id])
+  stage     Stage      @relation(fields: [stageId], references: [id])
+  stageRun  StageRun   @relation(fields: [stageRunId], references: [id])
+  approvals Approval[]
+
+  @@unique([agentId, stageId, round])
+  @@index([organizationId, status])
+}
+
+/// APPEND-ONLY. Written exclusively by src/lib/gates/record-decision.ts.
+/// This table is the sole evidence that a human approved anything.
+model Approval {
+  id                   String   @id @default(cuid())
+  organizationId       String
+  gateId               String
+  userId               String
+  roleId               String
+  /// "APPROVE" | "REQUEST_CHANGES" | "VETO"
+  decision             String
+  comment              String?
+  /// Author and approver are the same person. Requires a non-boilerplate
+  /// attestation statement; surfaces on the badge as "self-attested".
+  isSelfAttestation    Boolean  @default(false)
+  attestationStatement String?
+  /// Snapshot the decision was cast against — proves what was approved.
+  snapshotHash         String
+  createdAt            DateTime @default(now())
+
+  gate Gate @relation(fields: [gateId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  /// One decision per user per role per gate round.
+  @@unique([gateId, userId, roleId])
+  @@index([organizationId])
+}
+
+model Comment {
+  id                String    @id @default(cuid())
+  organizationId    String
+  agentId           String
+  artifactVersionId String?
+  /// JSON-pointer path into the artifact, e.g. "/personas/0/questions/2/text".
+  fieldPath         String?
+  body              String
+  authorUserId      String
+  /// Parking-lot items are per-stage notes that never block a gate.
+  isParkingLot      Boolean   @default(false)
+  resolvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  agent           Agent            @relation(fields: [agentId], references: [id])
+  artifactVersion ArtifactVersion? @relation(fields: [artifactVersionId], references: [id])
+
+  @@index([organizationId, agentId])
+}
+
+model Task {
+  id             String    @id @default(cuid())
+  organizationId String
+  agentId        String
+  /// "RE_APPROVAL" | "RE_CERTIFICATION" | "FIX_VALIDATION" | "REVIEW_CHANGES"
+  kind           String
+  title          String
+  description    String
+  assigneeRoleId String?
+  assigneeUserId String?
+  /// "OPEN" | "DONE" | "CANCELLED"
+  status         String    @default("OPEN")
+  /// The audit event that created this task — every task traces to a cause.
+  causeEventId   String?
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  agent Agent @relation(fields: [agentId], references: [id])
+  role  Role? @relation(fields: [assigneeRoleId], references: [id])
+
+  @@index([organizationId, status])
+}
+
+/// APPEND-ONLY, hash-chained per organisation. `prevHash` + `hash` make
+/// tampering detectable, which is what the evidence pack's manifest signs.
+model AuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  /// Monotonic per organisation; gives the chain a deterministic order.
+  sequence       Int
+  /// "USER" | "SYSTEM"
+  actorKind      String   @default("USER")
+  actorUserId    String?
+  type           String
+  subjectType    String
+  subjectId      String
+  /// Canonical JSON. No PII beyond the actor id.
+  payload        String
+  prevHash       String?
+  hash           String
+  createdAt      DateTime @default(now())
+
+  @@unique([organizationId, sequence])
+  @@index([organizationId, subjectType, subjectId])
+}
+
+model ChangeRequest {
+  id                String    @id @default(cuid())
+  organizationId    String
+  agentId           String
+  title             String
+  body              String
+  /// "OPEN" | "ACCEPTED" | "REJECTED"
+  status            String    @default("OPEN")
+  requestedByUserId String
+  createdAt         DateTime  @default(now())
+  resolvedAt        DateTime?
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([organizationId, status])
+}
+
+// ═══════════════════════════ Data products ═══════════════════════════
+
+model DataProduct {
+  id                   String    @id @default(cuid())
+  organizationId       String
+  workspaceId          String
+  key                  String
+  name                 String
+  description          String
+  domainId             String?
+  ownerName            String
+  ownerUserId          String?
+  /// Current contract semver, split for cheap major-bump comparison.
+  contractVersion      String
+  contractMajor        Int
+  contractMinor        Int
+  contractPatch        Int
+  semanticModelVersion String
+  /// Serving layer. "GOLD" | "PLATINUM" | "SEMANTIC" allowed;
+  /// "RAW" | "BRONZE" | "SILVER" | "STAGING" rejected by the binding validator.
+  layer                String    @default("GOLD")
+  qualityScore         Int
+  lastRefreshedAt      DateTime?
+  freshnessSlaHours    Int?
+  /// "PUBLIC" | "INTERNAL" | "CONFIDENTIAL" | "RESTRICTED" — inherited by agents.
+  sensitivity          String    @default("INTERNAL")
+  /// Raw DPF/ADPM import payload, when registered from an export.
+  importedFrom         String?
+  createdAt            DateTime  @default(now())
+  archivedAt           DateTime?
+
+  workspace Workspace            @relation(fields: [workspaceId], references: [id])
+  domain    Domain?              @relation(fields: [domainId], references: [id])
+  metrics   CertifiedMetric[]
+  versions  DataProductVersion[]
+  bindings  Binding[]
+
+  @@unique([organizationId, workspaceId, key])
+  @@index([organizationId])
+}
+
+/// History of contract/semantic versions. A row with a higher contractMajor than
+/// a BindingVersion's pin is exactly what fires cascade invalidation.
+model DataProductVersion {
+  id                   String   @id @default(cuid())
+  organizationId       String
+  dataProductId        String
+  contractVersion      String
+  contractMajor        Int
+  contractMinor        Int
+  contractPatch        Int
+  semanticModelVersion String
+  changeSummary        String
+  contentHash          String
+  createdAt            DateTime @default(now())
+
+  dataProduct DataProduct @relation(fields: [dataProductId], references: [id])
+
+  @@unique([dataProductId, contractVersion])
+  @@index([organizationId])
+}
+
+model CertifiedMetric {
+  id             String    @id @default(cuid())
+  organizationId String
+  dataProductId  String
+  key            String
+  name           String
+  definition     String
+  grain          String
+  unit           String?
+  /// Reference into the semantic model — never a physical table.
+  semanticRef    String
+  certifiedAt    DateTime?
+  certifiedBy    String?
+  archivedAt     DateTime?
+
+  dataProduct DataProduct        @relation(fields: [dataProductId], references: [id])
+  bindings    BindingMetric[]
+  coverage    QuestionCoverage[]
+
+  @@unique([dataProductId, key])
+  @@index([organizationId])
+}
+
+// ═══════════ The Binding — first-class, versioned, gated ═══════════
+
+model Binding {
+  id               String    @id @default(cuid())
+  organizationId   String
+  agentId          String
+  dataProductId    String
+  /// Denormalised copy of currentVersion.type, maintained by the binding
+  /// service, so the uniqueness rule below can be a database constraint.
+  /// A test asserts it always equals currentVersion.type.
+  bindingType      String
+  currentVersionId String?   @unique
+  /// "DRAFT" | "PROPOSED" | "APPROVED" | "STALE" | "RETIRED"
+  status           String    @default("DRAFT")
+  staleReason      String?
+  createdAt        DateTime  @default(now())
+  archivedAt       DateTime?
+
+  agent          Agent              @relation(fields: [agentId], references: [id])
+  dataProduct    DataProduct        @relation(fields: [dataProductId], references: [id])
+  versions       BindingVersion[]   @relation("BindingVersions")
+  currentVersion BindingVersion?    @relation("CurrentBindingVersion", fields: [currentVersionId], references: [id])
+  coverage       QuestionCoverage[]
+
+  /// One binding per (agent, product, type). The type lives on the version, so
+  /// changing type is a re-version that re-opens the gate — never an edit.
+  @@unique([agentId, dataProductId, bindingType])
+  @@index([organizationId, status])
+}
+
+/// APPEND-ONLY. The version pins the contract it was approved against.
+model BindingVersion {
+  id                        String   @id @default(cuid())
+  organizationId            String
+  bindingId                 String
+  versionNumber             Int
+  /// "GROUNDS_ON" | "QUERIES" | "RETRIEVES" | "ACTS_VIA" | "CITES"
+  type                      String
+  purpose                   String
+  /// Version pin — cascade compares this major to the product's current major.
+  boundContractVersion      String
+  boundContractMajor        Int
+  boundSemanticModelVersion String
+  contentHash               String
+  /// Serialised ValidationReport at commit time; the evidence pack cites this.
+  validationReport          String
+  authorUserId              String?
+  createdAt                 DateTime @default(now())
+
+  binding   Binding         @relation("BindingVersions", fields: [bindingId], references: [id])
+  currentOf Binding?        @relation("CurrentBindingVersion")
+  metrics   BindingMetric[]
+
+  @@unique([bindingId, versionNumber])
+  @@index([organizationId])
+}
+
+/// Certified metrics named by a QUERIES binding version.
+model BindingMetric {
+  id                String @id @default(cuid())
+  organizationId    String
+  bindingVersionId  String
+  certifiedMetricId String
+
+  bindingVersion  BindingVersion  @relation(fields: [bindingVersionId], references: [id])
+  certifiedMetric CertifiedMetric @relation(fields: [certifiedMetricId], references: [id])
+
+  @@unique([bindingVersionId, certifiedMetricId])
+  @@index([organizationId])
+}
+
+// ═════════ Consumption: personas, questions, coverage ═════════
+
+/// Workspace-scoped and reusable across agents — this is what makes the
+/// marketplace persona lens ("I am a Revenue Assurance Analyst") possible.
+model Persona {
+  id                String    @id @default(cuid())
+  organizationId    String
+  workspaceId       String
+  key               String
+  name              String
+  /// "BUSINESS" | "IT"
+  kind              String    @default("BUSINESS")
+  ownedDecisions    String
+  cadence           String
+  currentWorkaround String
+  /// Provenance when seeded from an industry pack.
+  packSourceKey     String?
+  createdAt         DateTime  @default(now())
+  archivedAt        DateTime?
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id])
+  agents    AgentPersona[]
+  questions Question[]
+
+  @@unique([organizationId, workspaceId, key])
+  @@index([organizationId])
+}
+
+model AgentPersona {
+  id             String  @id @default(cuid())
+  organizationId String
+  agentId        String
+  personaId      String
+  isPrimary      Boolean @default(false)
+
+  agent   Agent   @relation(fields: [agentId], references: [id])
+  persona Persona @relation(fields: [personaId], references: [id])
+
+  @@unique([agentId, personaId])
+  @@index([organizationId])
+}
+
+model Question {
+  id                    String    @id @default(cuid())
+  organizationId        String
+  agentId               String
+  personaId             String
+  text                  String
+  /// "lookup" | "trend" | "comparison" | "diagnosis" | "forecast" |
+  /// "recommendation" | "navigation"
+  intentClass           String
+  consequenceOfNoAnswer String
+  expectedAnswerShape   String
+  priority              Int       @default(0)
+  packSourceKey         String?
+  createdAt             DateTime  @default(now())
+  archivedAt            DateTime?
+
+  agent    Agent              @relation(fields: [agentId], references: [id])
+  persona  Persona            @relation(fields: [personaId], references: [id])
+  coverage QuestionCoverage[]
+
+  @@index([organizationId, agentId])
+}
+
+/// One cell of the coverage matrix: this question is answered by this binding,
+/// via this certified metric. Stage 3 exits only when every question has a row.
+model QuestionCoverage {
+  id                String   @id @default(cuid())
+  organizationId    String
+  questionId        String
+  bindingId         String
+  certifiedMetricId String?
+  note              String?
+  createdAt         DateTime @default(now())
+
+  question        Question         @relation(fields: [questionId], references: [id])
+  binding         Binding          @relation(fields: [bindingId], references: [id])
+  certifiedMetric CertifiedMetric? @relation(fields: [certifiedMetricId], references: [id])
+
+  @@unique([questionId, bindingId])
+  @@index([organizationId])
+}
+
+// ══════════════════════════════ Analytics ══════════════════════════════
+
+/// Local driver sink. No PII: distinctId is a salted hash of the user id.
+model AnalyticsEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  distinctId     String
+  properties     String
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, name])
+}

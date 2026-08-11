@@ -1,0 +1,22 @@
+# Postgres for teams who want it. SQLite is the default (see prisma/schema.prisma);
+# switch by setting the datasource provider to "postgresql" and pointing
+# DATABASE_URL here.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: amx
+      POSTGRES_PASSWORD: amx
+      POSTGRES_DB: amx
+    ports:
+      - "5432:5432"
+    volumes:
+      - amx-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U amx"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  amx-postgres:

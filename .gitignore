@@ -17,3 +17,8 @@ prisma/*.db-journal
 
 .DS_Store
 *.log
+
+# Mirrored artifact versions. The database is the record; this is a local
+# convenience mirror for diffing and export, and it is per-deployment data.
+workspace/
+.test-workspace/

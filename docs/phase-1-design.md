@@ -1,12 +1,13 @@
-# Phase 1 Design Proposal — awaiting sign-off
+# Phase 1 Design — signed off, and built
 
 Per `PROMPT.md`: *"Before writing code, give me your proposed Prisma schema (tenancy included),
 the shape of `stages.ts` and `bindings/validate.ts`, and the token → Tailwind wiring plan, and
 wait for my sign-off on those four things."*
 
-No application code has been written. This document is the deliverable for that gate.
-Section 5 lists conflicts and judgement calls that need a decision — flagged, not silently resolved,
-per `CLAUDE.md`.
+Sections 1–6 are that proposal, unedited, as signed off. Section 5 holds the conflicts and
+judgement calls raised at the time rather than resolved silently, per `CLAUDE.md`.
+**Section 7 records where the implementation departed from the plan**, and section 8 what was
+verified — and what was not.
 
 ---
 
@@ -1256,3 +1257,69 @@ with attestation → see the audit trail, all in the branded shell.
 
 Verification before I call Phase 1 done: `pnpm typecheck && pnpm lint && pnpm test &&
 pnpm build`, with anything unverified stated explicitly.
+
+---
+
+## 7 · As built — where the implementation departed from this plan
+
+Phase 1 is complete. The design above was signed off and followed; these are the deltas, and
+the reasons.
+
+**7.1 · Binding uniqueness took the permissive option (§5.5).** The unique key is
+`(agentId, dataProductId, bindingType)`, so an agent may hold both a `QUERIES` and an `ACTS_VIA`
+binding to the same product. The type still lives on `BindingVersion`; `Binding.bindingType` is
+a denormalised copy maintained by the binding service purely so the rule can be a database
+constraint rather than application logic.
+
+**7.2 · `commitBindingSet()` was added.** Stage 3 requires a `binding-set` artifact, but nothing
+was producing one — bindings were rows and the artifact was a document someone would have had to
+remember to write. The binding set is now *derived*: declaring a binding or changing a coverage
+cell re-serialises the current bindings and coverage and commits a new version. That keeps the
+artifact a gate approves honest — approve the artifact and you have approved exactly the
+bindings that exist.
+
+**7.3 · `trustHost: true` on Auth.js.** Auth.js v5 only auto-trusts the host on Vercel; without
+this, sign-in fails with `UntrustedHost` on any other deployment. Found by running the app, not
+by the tests.
+
+**7.4 · Two bugs the tests caught, worth recording.**
+- *Lazy Prisma promises lost the tenant context.* `runAsOrg` originally returned whatever the
+  callback returned. Prisma promises dispatch on `await`, not on construction, so
+  `withOrg(id, (db) => db.agent.findMany())` dispatched **after** the AsyncLocalStorage scope
+  had exited and the extension saw no organisation. `runAsOrg` now awaits inside the scope.
+- *The `globalThis` client cache leaked across module registries.* Cached for Next's dev HMR, it
+  was keeping the first test file's AsyncLocalStorage while later files wrote to their own —
+  silent cross-file context loss. The cache is now development-only.
+
+**7.5 · Playwright was not configured.** §6 listed `playwright.config.ts` in Phase 1, but Phase 3
+and Phase 5 own the e2e suites (the demo arc, the onboarding budget, the full lifecycle walk),
+and a config with no tests is a speculative file. Phase 1's acceptance path was instead verified
+by driving the built app in a real browser once; the results are in §8. The e2e suite lands with
+the demo arc it exists to protect.
+
+**7.6 · Stages 5–8 ship as definitions with empty exit criteria**, as agreed in §5.6. Their
+`requiredArtifacts`, approver roles, veto roles, and quorum are real and seeded; the criteria
+arrive with the authoring screens in Phase 3.
+
+## 8 · Verification
+
+`pnpm typecheck`, `pnpm lint`, `pnpm test` (86 tests, 7 files), and `pnpm build` all pass. The
+no-hard-coded-colour ESLint rule was verified by deliberately introducing a hex and confirming
+the build fails.
+
+The Phase 1 acceptance path from `PROMPT.md` was walked end to end in a browser against the
+production build:
+
+| Step | Result |
+|---|---|
+| Create an organisation | Lands on `/agents` with the starter agent present — not an empty screen |
+| Seeded workspace | Customer Churn Advisor at Stage 3, two data products, three questions |
+| Coverage matrix | 3 of 3 questions covered, each cell naming its certified metric |
+| Validator rejects a bad binding | *"This binding queries Customer 360 but doesn't name a certified metric… Pick one of the 2 certified metrics on Customer 360 (high_bill_risk, residential_churn_rate), or change the binding type to 'Grounds on'…"* |
+| Pass a gate solo with attestation | Approval recorded with `isSelfAttestation: true` and the statement verbatim; agent advanced to Stage 4 |
+| Audit trail | 14 events, chain verified on screen |
+| Cascade (Customer 360 → 3.0.0) | *"Breaking change recorded. 1 agent and 2 bindings are now stale, and 2 re-certification tasks have been raised."* Certification flipped to STALE with the cause naming both versions |
+
+**Not verified:** load or performance at scale (Phase 5), Postgres as the datasource (the schema
+is provider-neutral but has only been run on SQLite), and the invite-acceptance flow, which is
+modelled in `Invitation` but has no UI until Phase 2.

@@ -1,0 +1,36 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+    ],
+    "no-console": ["warn", { "allow": ["warn", "error", "info"] }]
+  },
+  "overrides": [
+    {
+      "files": ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}", "tailwind.config.ts"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "Literal[value=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b/]",
+            "message": "Hard-coded colour. Use a design token from src/styles/tokens.css via its Tailwind class (bg-brand-primary, text-warning, ...)."
+          },
+          {
+            "selector": "TemplateElement[value.raw=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b/]",
+            "message": "Hard-coded colour in a template literal. Use a design token from src/styles/tokens.css."
+          },
+          {
+            "selector": "Literal[value=/\\b(?:rgb|rgba|hsl|hsla)\\(/]",
+            "message": "Raw colour function. Use a design token from src/styles/tokens.css."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["tests/**/*.ts", "prisma/**/*.ts"],
+      "rules": { "no-console": "off" }
+    }
+  ]
+}
