@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { getSessionContext } from "@/lib/auth/session-context";
+import { GuidedTour } from "@/components/guided-tour";
 import { Badge } from "@/components/ui/status";
 
 /**
@@ -69,6 +71,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           AMX · the certification and distribution layer for enterprise agents
         </div>
       </footer>
+
+      {/* Renders only when the URL carries ?tour=; invisible otherwise. */}
+      <Suspense fallback={null}>
+        <GuidedTour />
+      </Suspense>
     </div>
   );
 }

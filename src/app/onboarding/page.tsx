@@ -1,26 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
-import { Input, Label, Muted, PageTitle, Panel } from "@/components/ui/primitives";
-import { hashPassword, signIn } from "@/lib/auth";
+import { Band, Input, Label, Muted, PageTitle, Panel } from "@/components/ui/primitives";
 import { getSessionContext } from "@/lib/auth/session-context";
-import { createOrganization, slugify } from "@/lib/organizations/create";
 
 const db = new PrismaClient();
 
-const formSchema = z.object({
-  name: z.string().trim().min(2, "Tell us your name."),
-  email: z.string().trim().toLowerCase().email("That doesn't look like an email address."),
-  password: z.string().min(8, "Use at least 8 characters."),
-  organizationName: z.string().trim().min(2, "Give the organisation a name."),
-});
-
 /**
- * Phase 1 onboarding: enough to get a person into a working, seeded workspace.
- * The industry-pack picker and the guided tour land with the wizard in Phase 2.
+ * Onboarding, step 1 of 2: pick the industry and name the workspace.
+ *
+ * The industry comes first because it decides what lands in the workspace, and
+ * the whole promise of this flow is that the next screen is already populated.
+ * Account details come second — asking for a password before showing anyone
+ * what they are signing up to is how you lose them.
  */
 export default async function OnboardingPage({
   searchParams,
@@ -31,88 +25,71 @@ export default async function OnboardingPage({
   if (existing) redirect("/agents");
 
   const params = await searchParams;
+  const industries = await db.industry.findMany({ orderBy: { name: "asc" } });
 
-  async function createAccount(formData: FormData) {
+  async function chooseIndustry(formData: FormData) {
     "use server";
+    const industryId = String(formData.get("industryId") ?? "_generic");
+    const organizationName = String(formData.get("organizationName") ?? "").trim();
+    const workspaceName = String(formData.get("workspaceName") ?? "").trim();
 
-    const parsed = formSchema.safeParse({
-      name: formData.get("name"),
-      email: formData.get("email"),
-      password: formData.get("password"),
-      organizationName: formData.get("organizationName"),
-    });
-    if (!parsed.success) {
-      redirect(`/onboarding?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
+    if (organizationName.length < 2) {
+      redirect(`/onboarding?error=${encodeURIComponent("Give the organisation a name.")}`);
     }
 
-    const { name, email, password, organizationName } = parsed.data;
-
-    const alreadyRegistered = await db.user.findUnique({
-      where: { email },
-      select: { id: true },
-    });
-    if (alreadyRegistered) {
-      redirect(`/onboarding?error=${encodeURIComponent("That email already has an account.")}`);
-    }
-
-    const user = await db.user.create({
-      data: { email, name, passwordHash: await hashPassword(password) },
-      select: { id: true },
-    });
-
-    let slug = slugify(organizationName);
-    if (await db.organization.findUnique({ where: { slug }, select: { id: true } })) {
-      slug = `${slug}-${user.id.slice(-5)}`;
-    }
-
-    await createOrganization({
-      name: organizationName,
-      slug,
-      ownerUserId: user.id,
-      ownerName: name,
-      planTier: "FREE",
-    });
-
-    await signIn("credentials", { email, password, redirectTo: "/agents" });
+    redirect(
+      `/onboarding/account?industry=${encodeURIComponent(industryId)}&org=${encodeURIComponent(organizationName)}&workspace=${encodeURIComponent(workspaceName)}`,
+    );
   }
 
   return (
     <div className="flex min-h-screen flex-col">
       <div className="h-1.5 bg-brand-primary" />
-      <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-6 py-12">
-        <PageTitle>Create your organisation</PageTitle>
-        <Muted className="mt-2">
-          You&rsquo;ll land in a workspace that already has two certified data products and an
-          agent part-way through its lifecycle — so you can see the coverage matrix before you
-          write anything.
+      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-6 py-12">
+        <p className="text-xs font-medium uppercase tracking-wide text-brand-deep">Step 1 of 2</p>
+        <PageTitle className="mt-1">Pick an industry to start from</PageTitle>
+        <Muted className="mt-2 max-w-prose">
+          Your workspace lands with a starter agent already part-way through its lifecycle and two
+          certified data products beneath it. You can change any of it — the point is that you
+          never start on an empty screen.
         </Muted>
 
         <Panel className="mt-6">
-          <form action={createAccount} className="space-y-4">
+          <form action={chooseIndustry} className="space-y-5">
+            <fieldset>
+              <legend className="mb-2 font-medium">Industry</legend>
+              <div className="space-y-2">
+                {industries.map((industry, index) => (
+                  <label
+                    key={industry.id}
+                    className="flex cursor-pointer items-start gap-3 rounded border border-border bg-surface p-3 hover:bg-panel"
+                  >
+                    <input
+                      type="radio"
+                      name="industryId"
+                      value={industry.id}
+                      defaultChecked={industry.id === "utilities" || index === 0}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="block font-medium">{industry.name}</span>
+                      <span className="block text-muted">{industry.summary}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
             <div>
               <Label htmlFor="organizationName">Organisation name</Label>
-              <Input id="organizationName" name="organizationName" required />
+              <Input id="organizationName" name="organizationName" required autoFocus />
             </div>
+
             <div>
-              <Label htmlFor="name">Your name</Label>
-              <Input id="name" name="name" required autoComplete="name" />
-            </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" required autoComplete="email" />
-            </div>
-            <div>
-              <Label htmlFor="password" hint="at least 8 characters">
-                Password
+              <Label htmlFor="workspaceName" hint="optional">
+                Workspace name
               </Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-              />
+              <Input id="workspaceName" name="workspaceName" placeholder="Retail & Revenue" />
             </div>
 
             {params.error ? (
@@ -121,8 +98,13 @@ export default async function OnboardingPage({
               </p>
             ) : null}
 
+            <Band>
+              Next: your account details, then straight into the workspace. It takes about a
+              minute.
+            </Band>
+
             <Button type="submit" className="w-full">
-              Create organisation
+              Continue
             </Button>
           </form>
         </Panel>

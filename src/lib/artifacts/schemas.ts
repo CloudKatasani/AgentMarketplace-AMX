@@ -6,8 +6,6 @@
  * independently (`schemaVersion` on `ArtifactVersion`) so an evidence pack
  * exported today stays readable after the shape moves on.
  *
- * Phase 1 defines the three kinds it actually commits. Stage 4's grounding-pack
- * and tool-specs land with their authoring UI in Phase 2.
  */
 import { z } from "zod";
 
@@ -88,6 +86,102 @@ export const bindingSetSchema = z.object({
 });
 export type BindingSet = z.infer<typeof bindingSetSchema>;
 
+// ──────────────────── Stage 4 · grounding-pack ────────────────────
+
+/**
+ * Field-compatible with the DPF Stage 10 grounding pack, so a pack authored
+ * there imports without translation.
+ *
+ * Note what is absent: there is no field for a query, a template, or a table.
+ * An agent's knowledge is sample questions, vocabulary, certified metric
+ * definitions, and named joins between semantic entities — never SQL.
+ */
+export const groundingPackSchema = z.object({
+  schemaVersion: z.literal("1.0.0"),
+  agentSlug: nonEmpty("Agent slug"),
+  /** Seeded from the Stage 1 register; the agent's worked examples. */
+  sampleQuestions: z
+    .array(
+      z.object({
+        question: nonEmpty("Question"),
+        metricKey: z.string().trim().default(""),
+        expectedAnswerShape: z.string().trim().default(""),
+      }),
+    )
+    .min(1, "Ground the agent in at least one worked example."),
+  glossary: z
+    .array(
+      z.object({
+        term: nonEmpty("Term"),
+        definition: nonEmpty("Definition", 10),
+      }),
+    )
+    .default([]),
+  /** Mirrors the certified metrics the bindings name; the agent's numbers. */
+  metricDefinitions: z
+    .array(
+      z.object({
+        key: nonEmpty("Metric key"),
+        definition: nonEmpty("Definition", 10),
+        grain: z.string().trim().default(""),
+      }),
+    )
+    .default([]),
+  /** Joins between named semantic entities. Physical tables are rejected. */
+  allowedJoins: z
+    .array(
+      z.object({
+        from: nonEmpty("From entity"),
+        to: nonEmpty("To entity"),
+        on: nonEmpty("Join key"),
+      }),
+    )
+    .default([]),
+  disambiguationHints: z
+    .array(
+      z.object({
+        ambiguousTerm: nonEmpty("Ambiguous term"),
+        resolution: nonEmpty("Resolution", 10),
+      }),
+    )
+    .default([]),
+});
+export type GroundingPack = z.infer<typeof groundingPackSchema>;
+
+// ──────────────────── Stage 4 · tool-specs ────────────────────
+
+/**
+ * A JSON-Schema-ish field descriptor. Deliberately structural: a tool whose
+ * inputs are "a string" is a tool nobody can review.
+ */
+const toolFieldSchema = z.object({
+  name: nonEmpty("Field name"),
+  type: z.enum(["string", "number", "boolean", "date", "enum", "array"]),
+  description: nonEmpty("Field description", 5),
+  required: z.boolean().default(true),
+});
+
+export const toolSpecSchema = z.object({
+  name: nonEmpty("Tool name"),
+  description: nonEmpty("Tool description", 10),
+  /** Which binding this tool acts through — a tool with no binding is ungoverned. */
+  bindingRef: nonEmpty("Binding reference"),
+  inputs: z.array(toolFieldSchema).default([]),
+  outputs: z.array(toolFieldSchema).default([]),
+  /** When the agent must decline rather than answer. */
+  refusalRules: z
+    .array(nonEmpty("Refusal rule", 10))
+    .min(1, "Say when this tool must refuse. A tool that never refuses has no scope."),
+  escalationPath: nonEmpty("Escalation path", 5),
+});
+
+export const toolSpecsSchema = z.object({
+  schemaVersion: z.literal("1.0.0"),
+  agentSlug: nonEmpty("Agent slug"),
+  tools: z.array(toolSpecSchema).default([]),
+});
+export type ToolSpecs = z.infer<typeof toolSpecsSchema>;
+
 // ─────────────────────────────── Registry ───────────────────────────────
 
 /** Schema per artifact kind, for `commit.ts` and the stage authoring forms. */
@@ -95,6 +189,8 @@ export const ARTIFACT_SCHEMAS = {
   "persona-question-register": personaQuestionRegisterSchema,
   "agent-charter": agentCharterSchema,
   "binding-set": bindingSetSchema,
+  "grounding-pack": groundingPackSchema,
+  "tool-specs": toolSpecsSchema,
 } as const;
 
 export type SchemaBackedArtifactKind = keyof typeof ARTIFACT_SCHEMAS;

@@ -6,9 +6,10 @@ human approved it.
 `CLAUDE.md` is binding for work in this repository. `PROMPT.md` holds the phase plan,
 `PITCH.md` the positioning, `SKILLS.md` the skill register.
 
-**Status: Phase 1 complete** — tenancy, design system, gate engine, binding validator, both
-cascade directions, audit chain, and a seeded showcase tenant. Stage authoring UI (Stages 1–4)
-lands in Phase 2; marketplace and demo mode in Phase 3.
+**Status: Phase 2 complete** — Phase 1's tenancy, gate engine, binding validator, cascade, and
+audit chain, plus the Stage 1–4 authoring screens, the review loop (field-anchored comments,
+parking lot, version diff, stage lock), data-product import, and the onboarding wizard with its
+guided tour. Marketplace, demo mode, and Stages 5–8 land in Phase 3.
 
 ---
 
@@ -33,16 +34,22 @@ needed — every enum is a `String` column whose domain lives in `src/lib/enums.
 
 ## What you can do today
 
-1. **Create an organisation** and land in a seeded workspace — never an empty screen.
-2. **Declare a binding** and watch the validator refuse a bad one in plain language with a
+1. **Create an organisation** — pick an industry, and land in a seeded workspace with a guided
+   tour that ends on the coverage matrix. Never an empty screen.
+2. **Author Stages 1–4**: the persona and question register, the charter (hard-blocked until
+   Stage 1 is real), bindings and coverage, and the grounding pack and tool specs.
+3. **Declare a binding** and watch the validator refuse a bad one in plain language with a
    suggested fix.
-3. **See the coverage matrix** — questions × bindings, with the certified metric in each cell.
+4. **See the coverage matrix** — questions × bindings, with the certified metric in each cell.
    Stage 3 will not close below 100%.
-4. **Pass a gate solo** with a recorded attestation, labelled *self-attested* rather than
+5. **Run a review round**: anchor a comment to a field, request changes, re-version, and see the
+   diff between two versions of an artifact.
+6. **Pass a gate solo** with a recorded attestation, labelled *self-attested* rather than
    *peer-certified*.
-5. **Publish a breaking contract version** on a data product and watch dependent certifications
-   flip to STALE with re-certification tasks — immediately, on the next render.
-6. **Read the audit trail**, hash-chained and verified on screen.
+7. **Import a data product** from a DPF/ADPM export — refused if it is served from a raw layer.
+8. **Publish a breaking contract version** and watch dependent certifications flip to STALE with
+   re-certification tasks — immediately, on the next render.
+9. **Read the audit trail**, hash-chained and verified on screen.
 
 ## Commands
 
@@ -88,7 +95,8 @@ src/
     lifecycle/stages.ts    8-stage registry; exit criteria are pure functions
     gates/                 requestTransition() · recordDecision() · cascade
     bindings/              validate · coverage · service
-    artifacts/             commit (hash → version → audit → mirror) · schemas
+    stages/                consumption · charter · grounding · review
+    artifacts/             commit (hash → version → audit → mirror) · schemas · diff
     db/                    tenancy extension + model classification
     audit/  analytics/  plans/  seed/  auth/
   styles/tokens.css        the only file containing a colour value
@@ -100,3 +108,5 @@ workspace/                 mirrored artifact versions (gitignored)
 
 `docs/phase-1-design.md` carries the Phase 1 proposal, the flagged conflicts, and an as-built
 section recording where the implementation departed from the plan and why.
+`docs/phase-2-design.md` covers the authoring stages, the review loop, onboarding, and the two
+bugs that only showed up when the app was actually driven in a browser.

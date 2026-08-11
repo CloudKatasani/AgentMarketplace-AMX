@@ -19,7 +19,9 @@ import type { BindingType } from "@/lib/enums";
 
 import {
   DEFAULT_REFERENCE_RULES,
+  SQL_STATEMENT_SIGNAL,
   SQL_TABLE_REFERENCE,
+  TABLE_SHAPED_IDENTIFIER,
   compileRules,
   matchesDeniedIdentifier,
   type CompiledRules,
@@ -311,9 +313,16 @@ function scanText(
   const findings: ValidationFinding[] = [];
   const seen = new Set<string>();
 
+  // "from" and "join" are ordinary English. Only treat them as SQL when the
+  // string carries another SQL signal, or the identifier is shaped like a
+  // table — otherwise "accounts that moved into arrears" gets rejected and the
+  // validator loses the room.
+  const looksLikeSql = SQL_STATEMENT_SIGNAL.test(text);
+
   for (const match of text.matchAll(SQL_TABLE_REFERENCE)) {
     const identifier = match[1];
     if (!identifier || seen.has(identifier)) continue;
+    if (!looksLikeSql && !TABLE_SHAPED_IDENTIFIER.test(identifier)) continue;
     seen.add(identifier);
     findings.push({
       code: "PHYSICAL_TABLE_REFERENCE",

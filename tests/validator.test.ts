@@ -191,6 +191,52 @@ describe("binding validator — version pins and actions", () => {
   });
 });
 
+describe("the scanner does not flag ordinary English", () => {
+  /**
+   * "from" and "join" are common words. A validator that rejects a sentence a
+   * business user typed loses the room in the first demo, so these are the
+   * phrases that must pass.
+   */
+  const innocent = [
+    "Which accounts moved into arrears this week?",
+    "Churn from last quarter, by segment",
+    "Customers who join the retention programme within 30 days",
+    "Rank accounts from highest to lowest risk",
+    "Show the change from prior month",
+  ];
+
+  it.each(innocent)("accepts %s", (sentence) => {
+    const report = validateDocumentReferences(
+      { disambiguationHints: [{ ambiguousTerm: "x", resolution: sentence }] },
+      "grounding-pack",
+      "gp",
+      ctx,
+    );
+    expect(report.findings.map((f) => f.message)).toEqual([]);
+  });
+
+  it("still catches a real query", () => {
+    const report = validateDocumentReferences(
+      { note: "select account_id from customers where churned = 1" },
+      "grounding-pack",
+      "gp",
+      ctx,
+    );
+    expect(report.ok).toBe(false);
+    expect(report.findings.some((f) => f.code === "PHYSICAL_TABLE_REFERENCE")).toBe(true);
+  });
+
+  it("still catches a table-shaped identifier without any SQL around it", () => {
+    const report = validateDocumentReferences(
+      { note: "join silver.meter_reads for the detail" },
+      "grounding-pack",
+      "gp",
+      ctx,
+    );
+    expect(report.ok).toBe(false);
+  });
+});
+
 describe("grounding packs and tool specs", () => {
   it("accepts a pack that references only certified metrics", () => {
     const report = validateDocumentReferences(

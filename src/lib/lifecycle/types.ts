@@ -138,6 +138,8 @@ export type StageRunSummary = {
   id: string;
   stageId: StageKey;
   status: StageRunStatus;
+  /** Plain-language cause when a cascade marked this stage stale. */
+  staleReason: string | null;
 };
 
 /** Everything a criterion may read, loaded once per evaluation. */

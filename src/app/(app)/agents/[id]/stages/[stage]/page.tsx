@@ -1,142 +1,117 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PrismaClient } from "@prisma/client";
 
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { CoverageMatrix } from "@/components/coverage-matrix";
 import { CriteriaList } from "@/components/criteria-list";
+import { ReviewPanel } from "@/components/review-panel";
 import { StageRail } from "@/components/stage-rail";
+import { StageOne } from "@/components/stages/stage-one";
+import { StageTwo } from "@/components/stages/stage-two";
+import { StageThree } from "@/components/stages/stage-three";
+import { StageFour } from "@/components/stages/stage-four";
 import { Button } from "@/components/ui/button";
-import {
-  Band,
-  EmptyState,
-  Label,
-  Muted,
-  PageTitle,
-  Panel,
-  SectionTitle,
-  Textarea,
-} from "@/components/ui/primitives";
-import { Badge, StaleBanner } from "@/components/ui/status";
+import { Band, Muted, PageTitle, Panel, SectionTitle } from "@/components/ui/primitives";
+import { Badge, InfoBanner, StaleBanner } from "@/components/ui/status";
+import { VersionHistory } from "@/components/version-history";
+import { diffArtifacts } from "@/lib/artifacts/diff";
+import type { AgentCharter, GroundingPack, ToolSpecs } from "@/lib/artifacts/schemas";
 import { requireSessionContext } from "@/lib/auth/session-context";
 import { computeCoverageMatrix } from "@/lib/bindings/coverage";
 import { withOrg } from "@/lib/db/scope";
-import { BINDING_TYPES, BINDING_TYPE_LABELS, STAGE_KEYS, type IntentClass } from "@/lib/enums";
+import { STAGE_KEYS, type BindingType, type IntentClass } from "@/lib/enums";
 import { loadStageContext } from "@/lib/lifecycle/context";
 import { evaluateExitCriteria, stageByKey } from "@/lib/lifecycle/stages";
 import { roleName } from "@/lib/roles";
+import { hasQualifyingPersona } from "@/lib/stages/charter";
+import { draftGroundingPack } from "@/lib/stages/grounding";
+import { loadStageComments, stageLockState } from "@/lib/stages/review";
 
-import { declareBindingAction, submitStageAction } from "../../actions";
+import { submitStageAction } from "../../actions";
+
+const users = new PrismaClient();
 
 export default async function StagePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; stage: string }>;
+  searchParams: Promise<{ diff?: string; from?: string; to?: string }>;
 }) {
   const { id, stage: stageParam } = await params;
+  const query = await searchParams;
+
   const parsedStage = STAGE_KEYS.schema.safeParse(stageParam);
   if (!parsedStage.success) notFound();
   const stage = stageByKey(parsedStage.data);
+  const stageId = parsedStage.data;
 
   const session = await requireSessionContext();
 
   const data = await withOrg(session.organizationId, async (db) => {
     const agent = await db.agent.findUnique({
       where: { id },
-      select: { id: true, name: true, currentStageId: true, workspaceId: true },
+      select: { id: true, name: true, slug: true, currentStageId: true, workspaceId: true },
     });
     if (!agent) return null;
 
-    const [ctx, stageRuns, openGate, products, questions, bindings, coverageRows] =
-      await Promise.all([
-        loadStageContext(db, session.organizationId, id, parsedStage.data),
-        db.stageRun.findMany({ where: { agentId: id }, select: { stageId: true, status: true } }),
-        db.gate.findFirst({
-          where: { agentId: id, stageId: parsedStage.data, status: "OPEN" },
-          select: { id: true, mode: true },
-        }),
-        db.dataProduct.findMany({
-          where: { workspaceId: agent.workspaceId, archivedAt: null },
-          select: {
-            id: true,
-            name: true,
-            contractVersion: true,
-            qualityScore: true,
-            layer: true,
-            lastRefreshedAt: true,
-            metrics: {
-              where: { archivedAt: null },
-              select: { id: true, key: true, name: true, certifiedAt: true },
-            },
-          },
-        }),
-        db.question.findMany({
-          where: { agentId: id, archivedAt: null },
-          orderBy: { priority: "asc" },
-          select: {
-            id: true,
-            text: true,
-            intentClass: true,
-            personaId: true,
-            persona: { select: { name: true } },
-          },
-        }),
-        db.binding.findMany({
-          where: { agentId: id, archivedAt: null },
-          select: {
-            id: true,
-            status: true,
-            bindingType: true,
-            staleReason: true,
-            dataProduct: { select: { id: true, name: true, contractVersion: true } },
-            currentVersion: {
-              select: {
-                versionNumber: true,
-                purpose: true,
-                boundContractVersion: true,
-                metrics: { select: { certifiedMetric: { select: { key: true } } } },
-              },
-            },
-          },
-        }),
-        db.questionCoverage.findMany({
-          where: { question: { agentId: id } },
-          select: {
-            questionId: true,
-            bindingId: true,
-            certifiedMetric: { select: { key: true } },
-          },
-        }),
-      ]);
+    const [ctx, stageRuns, openGate, lock, versions, personaFloorMet] = await Promise.all([
+      loadStageContext(db, session.organizationId, id, stageId),
+      db.stageRun.findMany({ where: { agentId: id }, select: { stageId: true, status: true } }),
+      db.gate.findFirst({
+        where: { agentId: id, stageId, status: "OPEN" },
+        select: { id: true, mode: true },
+      }),
+      stageLockState(db, id, stageId),
+      db.artifactVersion.findMany({
+        where: { artifact: { agentId: id, kind: { in: [...stage.requiredArtifacts] } } },
+        orderBy: [{ artifactId: "asc" }, { versionNumber: "desc" }],
+        select: {
+          id: true,
+          versionNumber: true,
+          contentHash: true,
+          content: true,
+          isAiDraft: true,
+          authorUserId: true,
+          createdAt: true,
+          artifact: { select: { kind: true, currentVersionId: true } },
+        },
+      }),
+      hasQualifyingPersona(db, id),
+    ]);
 
-    return { agent, ctx, stageRuns, openGate, products, questions, bindings, coverageRows };
+    const stageThree =
+      stageId === "3-data-product-binding"
+        ? await loadStageThree(db, id, agent.workspaceId)
+        : null;
+
+    const stageFour =
+      stageId === "4-grounding-and-tools" ? await loadStageFour(db, id) : null;
+
+    return { agent, ctx, stageRuns, openGate, lock, versions, personaFloorMet, stageThree, stageFour };
   });
 
   if (!data?.agent) notFound();
-  const { agent, ctx, stageRuns, openGate, products, questions, bindings, coverageRows } = data;
+  const { agent, ctx, stageRuns, openGate, lock, versions, personaFloorMet } = data;
+
+  const authorIds = [...new Set(versions.map((v) => v.authorUserId).filter(Boolean))] as string[];
+  const authors = await users.user.findMany({
+    where: { id: { in: authorIds } },
+    select: { id: true, name: true },
+  });
+  const authorNames = Object.fromEntries(authors.map((a) => [a.id, a.name]));
+
+  const comments = await withOrg(session.organizationId, (db) =>
+    loadStageComments(db, id, stageId, authorNames),
+  );
+
   const evaluation = ctx ? evaluateExitCriteria(stage, ctx) : null;
   const statusByStage = Object.fromEntries(stageRuns.map((r) => [r.stageId, r.status]));
-  const stageStatus = statusByStage[stage.key] ?? "NOT_STARTED";
+  const stageStatus = statusByStage[stageId] ?? "NOT_STARTED";
+  const readOnly = session.isReadOnly;
+  const editingLocked = readOnly || lock.locked;
 
-  const matrix = computeCoverageMatrix({
-    questions: questions.map((q) => ({
-      id: q.id,
-      text: q.text,
-      personaId: q.personaId,
-      personaName: q.persona.name,
-      intentClass: q.intentClass as IntentClass,
-    })),
-    bindings: bindings.map((b) => ({
-      id: b.id,
-      productId: b.dataProduct.id,
-      productName: b.dataProduct.name,
-      type: b.bindingType as (typeof BINDING_TYPES.values)[number],
-    })),
-    rows: coverageRows.map((row) => ({
-      questionId: row.questionId,
-      bindingId: row.bindingId,
-      metricKey: row.certifiedMetric?.key ?? null,
-    })),
-  });
+  const diff = buildDiff(versions, query);
 
   return (
     <div className="space-y-6">
@@ -160,174 +135,112 @@ export default async function StagePage({
         <StaleBanner
           title="This stage needs re-approval"
           cause={
-            ctx?.stageRun.status === "STALE"
-              ? "Something this stage approved has changed since the approval was given."
-              : "A dependency changed after this stage was approved."
+            ctx?.stageRun.staleReason ??
+            "Something this stage approved has changed since the approval was given."
           }
         />
       ) : null}
 
-      {stage.key === "3-data-product-binding" ? (
-        <>
-          <Panel>
-            <SectionTitle>Bindings</SectionTitle>
-            <Muted className="mt-1">
-              What this agent stands on. Each binding is versioned and pinned to the contract
-              version it was approved against.
-            </Muted>
+      {lock.locked && !readOnly ? (
+        <InfoBanner>
+          <span className="font-medium">{lock.reason}</span> {lock.nextAction}
+        </InfoBanner>
+      ) : null}
 
-            {bindings.length === 0 ? (
-              <div className="mt-4">
-                <EmptyState
-                  title="No bindings yet"
-                  body="An agent with no bindings stands on nothing that has been certified. Bind it to a data product below."
-                  action={undefined}
-                />
-              </div>
-            ) : (
-              <ul className="mt-4 divide-y divide-border">
-                {bindings.map((binding) => (
-                  <li key={binding.id} className="py-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{binding.dataProduct.name}</span>
-                      <Badge tone="neutral">
-                        {binding.bindingType.replace(/_/g, " ").toLowerCase()}
-                      </Badge>
-                      {binding.status === "STALE" ? (
-                        <Badge tone="warning">Stale</Badge>
-                      ) : (
-                        <Badge tone="brand">{binding.status.toLowerCase()}</Badge>
-                      )}
-                      <span className="text-muted">
-                        pinned to contract {binding.currentVersion?.boundContractVersion ?? "—"}
-                        {binding.currentVersion &&
-                        binding.currentVersion.boundContractVersion !==
-                          binding.dataProduct.contractVersion
-                          ? ` · product is now ${binding.dataProduct.contractVersion}`
-                          : ""}
-                      </span>
-                    </div>
-                    <p className="mt-1 max-w-prose text-muted">
-                      {binding.currentVersion?.purpose}
-                    </p>
-                    {binding.currentVersion && binding.currentVersion.metrics.length > 0 ? (
-                      <p className="mt-1 text-muted">
-                        Metrics:{" "}
-                        {binding.currentVersion.metrics
-                          .map((m) => m.certifiedMetric.key)
-                          .join(", ")}
-                      </p>
-                    ) : null}
-                    {binding.staleReason ? (
-                      <p className="mt-2 rounded bg-warning-tint px-3 py-2 text-warning">
-                        {binding.staleReason}
-                      </p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
+      {stageId === "1-consumption-discovery" ? (
+        <StageOne
+          agentId={agent.id}
+          locked={editingLocked}
+          personas={(ctx?.personas ?? []).map((persona) => ({
+            id: persona.id,
+            name: persona.name,
+            kind: persona.kind,
+            ownedDecisions: persona.ownedDecisions,
+            cadence: persona.cadence,
+            currentWorkaround: persona.currentWorkaround,
+            questions: persona.questions.map((question) => ({
+              id: question.id,
+              text: question.text,
+              intentClass: question.intentClass as IntentClass,
+              consequenceOfNoAnswer: question.consequenceOfNoAnswer,
+              expectedAnswerShape: question.expectedAnswerShape,
+            })),
+          }))}
+        />
+      ) : null}
 
-          <Panel>
-            <SectionTitle>Declare a binding</SectionTitle>
-            <Muted className="mt-1">
-              The validator runs before anything is saved. A binding that fails is not written at
-              all — you will see why, and what to do instead.
-            </Muted>
+      {stageId === "2-agent-charter" ? (
+        <StageTwo
+          agentId={agent.id}
+          locked={editingLocked}
+          personaFloorMet={personaFloorMet}
+          charter={(ctx?.artifacts["agent-charter"]?.content as AgentCharter | undefined) ?? null}
+        />
+      ) : null}
 
-            <ActionForm action={declareBindingAction} className="mt-4 space-y-4">
-              <input type="hidden" name="agentId" value={agent.id} />
+      {stageId === "3-data-product-binding" && data.stageThree ? (
+        <StageThree
+          agentId={agent.id}
+          locked={editingLocked}
+          bindings={data.stageThree.bindings}
+          products={data.stageThree.products}
+          matrix={data.stageThree.matrix}
+        />
+      ) : null}
 
-              <div>
-                <Label htmlFor="dataProductId">Data product</Label>
-                <select
-                  id="dataProductId"
-                  name="dataProductId"
-                  required
-                  className="h-10 w-full rounded border border-border bg-surface px-3 text-body"
-                >
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name} · contract {product.contractVersion} · quality{" "}
-                      {product.qualityScore} · {product.layer}
-                    </option>
-                  ))}
-                </select>
-              </div>
+      {stageId === "4-grounding-and-tools" && data.stageFour ? (
+        <StageFour
+          agentId={agent.id}
+          agentSlug={agent.slug}
+          locked={editingLocked}
+          pack={
+            (ctx?.artifacts["grounding-pack"]?.content as GroundingPack | undefined) ??
+            data.stageFour.draft
+          }
+          specs={(ctx?.artifacts["tool-specs"]?.content as ToolSpecs | undefined) ?? null}
+          bindingRefs={data.stageFour.bindingRefs}
+        />
+      ) : null}
 
-              <div>
-                <Label htmlFor="type">Binding type</Label>
-                <select
-                  id="type"
-                  name="type"
-                  required
-                  className="h-10 w-full rounded border border-border bg-surface px-3 text-body"
-                >
-                  {BINDING_TYPES.values.map((type) => (
-                    <option key={type} value={type}>
-                      {BINDING_TYPE_LABELS[type]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <Label htmlFor="purpose" hint="one sentence">
-                  What is this binding for?
-                </Label>
-                <Textarea id="purpose" name="purpose" rows={2} required minLength={10} />
-              </div>
-
-              <fieldset>
-                <legend className="mb-1 font-medium">
-                  Certified metrics{" "}
-                  <span className="font-normal text-muted">required for a QUERIES binding</span>
-                </legend>
-                <div className="space-y-1">
-                  {products.flatMap((product) =>
-                    product.metrics.map((metric) => (
-                      <label key={metric.id} className="flex items-center gap-2">
-                        <input type="checkbox" name="metricIds" value={metric.id} />
-                        <span>
-                          {metric.name}{" "}
-                          <span className="text-muted">
-                            ({product.name} · {metric.key}
-                            {metric.certifiedAt ? "" : " · not certified"})
-                          </span>
-                        </span>
-                      </label>
-                    )),
-                  )}
-                </div>
-              </fieldset>
-
-              <SubmitButton pendingLabel="Validating…">Validate and commit</SubmitButton>
-            </ActionForm>
-          </Panel>
-
-          <Panel id="matrix">
-            <SectionTitle>Question coverage</SectionTitle>
-            <div className="mt-3">
-              <CoverageMatrix matrix={matrix} />
-            </div>
-          </Panel>
-        </>
-      ) : (
+      {stage.ordinal >= 5 ? (
         <Panel>
           <SectionTitle>Artifacts</SectionTitle>
           <Muted className="mt-2">
-            {stage.requiredArtifacts.join(", ")} —{" "}
-            {stage.ordinal <= 4
-              ? "the authoring form for this stage arrives in Phase 2."
-              : "this stage's authoring screens arrive in Phase 3."}
+            {stage.requiredArtifacts.join(", ")} — this stage&rsquo;s authoring screens arrive in
+            Phase 3.
           </Muted>
         </Panel>
-      )}
+      ) : null}
+
+      <VersionHistory
+        versions={versions.map((version) => ({
+          id: version.id,
+          kind: version.artifact.kind,
+          versionNumber: version.versionNumber,
+          contentHash: version.contentHash,
+          isAiDraft: version.isAiDraft,
+          authorName: version.authorUserId ? (authorNames[version.authorUserId] ?? "A member") : "System",
+          createdAt: version.createdAt,
+          isCurrent: version.artifact.currentVersionId === version.id,
+        }))}
+        diff={diff?.diff ?? null}
+        compare={diff?.compare ?? null}
+        basePath={`/agents/${agent.id}/stages/${stageId}`}
+      />
+
+      <ReviewPanel
+        agentId={agent.id}
+        stageId={stageId}
+        comments={comments}
+        readOnly={readOnly}
+        fieldOptions={fieldOptionsFor(stageId)}
+      />
 
       <Panel>
         <SectionTitle>Exit criteria</SectionTitle>
-        <div className="mt-3">{evaluation ? <CriteriaList results={evaluation.results} /> : null}</div>
+        <div className="mt-3">
+          {evaluation ? <CriteriaList results={evaluation.results} /> : null}
+        </div>
 
         <Band className="mt-4">
           Approved by {stage.requiredApproverRoles.map(roleName).join(" and ")}
@@ -343,10 +256,14 @@ export default async function StagePage({
               <Link href={`/agents/${agent.id}/gates/${openGate.id}`}>Go to the gate</Link>
             </Button>
           </div>
+        ) : readOnly ? (
+          <Muted className="mt-4">
+            This is the read-only demo workspace, so stages cannot be submitted here.
+          </Muted>
         ) : (
           <ActionForm action={submitStageAction} className="mt-4 space-y-3">
             <input type="hidden" name="agentId" value={agent.id} />
-            <input type="hidden" name="stageId" value={stage.key} />
+            <input type="hidden" name="stageId" value={stageId} />
 
             {stage.soloAttestation.allowed ? (
               <label className="flex items-start gap-2">
@@ -376,4 +293,188 @@ export default async function StagePage({
       </Panel>
     </div>
   );
+}
+
+// ───────────────────────── Loaders ─────────────────────────
+
+type Db = Parameters<Parameters<typeof withOrg>[1]>[0];
+
+async function loadStageThree(db: Db, agentId: string, workspaceId: string) {
+  const [products, questions, bindings, coverageRows] = await Promise.all([
+    db.dataProduct.findMany({
+      where: { workspaceId, archivedAt: null },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        contractVersion: true,
+        qualityScore: true,
+        layer: true,
+        metrics: {
+          where: { archivedAt: null },
+          select: { id: true, key: true, name: true, certifiedAt: true },
+        },
+      },
+    }),
+    db.question.findMany({
+      where: { agentId, archivedAt: null },
+      orderBy: { priority: "asc" },
+      select: {
+        id: true,
+        text: true,
+        intentClass: true,
+        personaId: true,
+        persona: { select: { name: true } },
+      },
+    }),
+    db.binding.findMany({
+      where: { agentId, archivedAt: null },
+      select: {
+        id: true,
+        status: true,
+        bindingType: true,
+        staleReason: true,
+        dataProduct: { select: { id: true, name: true, contractVersion: true } },
+        currentVersion: {
+          select: {
+            purpose: true,
+            boundContractVersion: true,
+            metrics: { select: { certifiedMetric: { select: { key: true } } } },
+          },
+        },
+      },
+    }),
+    db.questionCoverage.findMany({
+      where: { question: { agentId } },
+      select: { questionId: true, bindingId: true, certifiedMetric: { select: { key: true } } },
+    }),
+  ]);
+
+  const matrix = computeCoverageMatrix({
+    questions: questions.map((q) => ({
+      id: q.id,
+      text: q.text,
+      personaId: q.personaId,
+      personaName: q.persona.name,
+      intentClass: q.intentClass as IntentClass,
+    })),
+    bindings: bindings.map((b) => ({
+      id: b.id,
+      productId: b.dataProduct.id,
+      productName: b.dataProduct.name,
+      type: b.bindingType as BindingType,
+    })),
+    rows: coverageRows.map((row) => ({
+      questionId: row.questionId,
+      bindingId: row.bindingId,
+      metricKey: row.certifiedMetric?.key ?? null,
+    })),
+  });
+
+  return {
+    products,
+    matrix,
+    bindings: bindings.map((binding) => ({
+      id: binding.id,
+      status: binding.status,
+      bindingType: binding.bindingType,
+      staleReason: binding.staleReason,
+      productName: binding.dataProduct.name,
+      productContractVersion: binding.dataProduct.contractVersion,
+      purpose: binding.currentVersion?.purpose ?? null,
+      pinnedContractVersion: binding.currentVersion?.boundContractVersion ?? null,
+      metricKeys: binding.currentVersion?.metrics.map((m) => m.certifiedMetric.key) ?? [],
+    })),
+  };
+}
+
+async function loadStageFour(db: Db, agentId: string) {
+  const [draft, bindings] = await Promise.all([
+    draftGroundingPack(db, agentId),
+    db.binding.findMany({
+      where: { agentId, archivedAt: null },
+      select: { bindingType: true, dataProduct: { select: { key: true, name: true } } },
+    }),
+  ]);
+
+  return {
+    draft: draft ?? {
+      schemaVersion: "1.0.0" as const,
+      agentSlug: "",
+      sampleQuestions: [],
+      glossary: [],
+      metricDefinitions: [],
+      allowedJoins: [],
+      disambiguationHints: [],
+    },
+    bindingRefs: bindings.map((binding) => ({
+      ref: `${binding.dataProduct.key}:${binding.bindingType}`,
+      label: `${binding.dataProduct.name} · ${binding.bindingType.replace(/_/g, " ").toLowerCase()}`,
+    })),
+  };
+}
+
+// ───────────────────────── Diff ─────────────────────────
+
+function buildDiff(
+  versions: { versionNumber: number; content: string; artifact: { kind: string } }[],
+  query: { diff?: string; from?: string; to?: string },
+) {
+  if (!query.diff || !query.from || !query.to) return null;
+
+  const inKind = versions.filter((v) => v.artifact.kind === query.diff);
+  const from = inKind.find((v) => v.versionNumber === Number(query.from));
+  const to = inKind.find((v) => v.versionNumber === Number(query.to));
+  if (!from || !to) return null;
+
+  return {
+    diff: diffArtifacts(safeParse(from.content), safeParse(to.content)),
+    compare: {
+      fromVersion: from.versionNumber,
+      toVersion: to.versionNumber,
+      kind: query.diff,
+    },
+  };
+}
+
+function safeParse(json: string): unknown {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return {};
+  }
+}
+
+/** Anchors a reviewer can attach a comment to, per stage. */
+function fieldOptionsFor(stageId: string): { path: string; label: string }[] {
+  switch (stageId) {
+    case "1-consumption-discovery":
+      return [
+        { path: "/personas", label: "The personas" },
+        { path: "/personas/0/ownedDecisions", label: "Owned decisions" },
+        { path: "/personas/0/questions", label: "The questions" },
+      ];
+    case "2-agent-charter":
+      return [
+        { path: "/mission", label: "Mission" },
+        { path: "/scopeBoundary", label: "Scope boundary" },
+        { path: "/outOfScope", label: "Out-of-scope list" },
+        { path: "/riskTier", label: "Risk tier" },
+        { path: "/ownerName", label: "Accountable owner" },
+      ];
+    case "3-data-product-binding":
+      return [
+        { path: "/bindings", label: "The bindings" },
+        { path: "/coverage", label: "Question coverage" },
+      ];
+    case "4-grounding-and-tools":
+      return [
+        { path: "/sampleQuestions", label: "Sample questions" },
+        { path: "/glossary", label: "Glossary" },
+        { path: "/allowedJoins", label: "Allowed joins" },
+        { path: "/tools", label: "Tool specifications" },
+      ];
+    default:
+      return [];
+  }
 }

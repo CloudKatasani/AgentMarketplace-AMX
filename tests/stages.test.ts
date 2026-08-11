@@ -28,7 +28,7 @@ function context(overrides: Partial<StageContext> = {}): StageContext {
       status: "DRAFT",
       certification: "NONE",
     },
-    stageRun: { id: "run", stageId: "1-consumption-discovery", status: "DRAFT" },
+    stageRun: { id: "run", stageId: "1-consumption-discovery", status: "DRAFT", staleReason: null },
     artifacts: {},
     personas: [],
     questions: [],

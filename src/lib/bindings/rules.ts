@@ -72,7 +72,22 @@ export function compileRules(
 }
 
 /** `FROM customers`, `JOIN silver.meter_reads AS m` — the obvious cases, caught loudly. */
-export const SQL_TABLE_REFERENCE = /\b(?:from|join|into|update|insert\s+into)\s+([a-z_][\w.$]*)/gi;
+export const SQL_TABLE_REFERENCE = /\b(?:from|join)\s+([a-z_][\w.$]*)/gi;
+
+/**
+ * Other SQL keywords in the same string.
+ *
+ * "from" and "join" are ordinary English — *"churn from last quarter"*,
+ * *"accounts that moved into arrears"*, *"join the retention programme"*. A
+ * scanner that flags those makes the validator a laughing stock in the first
+ * demo, so a bare FROM/JOIN is only treated as SQL when the string carries
+ * another SQL signal, or when the identifier itself looks like a table.
+ */
+export const SQL_STATEMENT_SIGNAL =
+  /\b(?:select|where|group\s+by|order\s+by|inner\s+join|left\s+join|union\s+all|having)\b/i;
+
+/** `bronze.events`, `slv_meter_reads` — dotted or snake_cased, i.e. not prose. */
+export const TABLE_SHAPED_IDENTIFIER = /^[a-z][\w$]*(?:[._][\w$]+)+$/i;
 
 export function matchesDeniedIdentifier(identifier: string, rules: CompiledRules): boolean {
   return rules.deniedIdentifiers.some((pattern) => pattern.test(identifier));

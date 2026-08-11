@@ -201,6 +201,8 @@ export const AUDIT_EVENT_TYPES = enumOf([
   "cascade.artifact-revision",
   "cascade.product-major-bump",
   "certification.changed",
+  "comment.added",
+  "comment.resolved",
   "dataproduct.registered",
   "dataproduct.version-bumped",
   "task.created",

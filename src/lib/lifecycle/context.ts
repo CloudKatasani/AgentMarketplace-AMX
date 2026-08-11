@@ -54,7 +54,7 @@ export async function loadStageContext(
     await Promise.all([
       db.stageRun.findUnique({
         where: { agentId_stageId: { agentId, stageId } },
-        select: { id: true, stageId: true, status: true },
+        select: { id: true, stageId: true, status: true, staleReason: true },
       }),
       db.artifact.findMany({
         where: { agentId },
@@ -202,8 +202,9 @@ export async function loadStageContext(
           id: stageRun.id,
           stageId: stageRun.stageId as StageKey,
           status: stageRun.status as StageRunStatus,
+          staleReason: stageRun.staleReason,
         }
-      : { id: "", stageId, status: "NOT_STARTED" },
+      : { id: "", stageId, status: "NOT_STARTED", staleReason: null },
     artifacts: artifactMap,
     personas: personas.map((persona) => ({
       ...persona,
