@@ -57,6 +57,27 @@ export function CertificationBadge({ status }: { status: CertificationStatus }) 
 }
 
 /**
+ * Where the agent is in its life, as opposed to what its certification says.
+ *
+ * The two are genuinely different — an agent can be published and stale, or
+ * certified and not yet published — so they are two badges, never one.
+ */
+export function LifecycleBadge({ status }: { status: string }) {
+  switch (status) {
+    case "PUBLISHED":
+      return <Badge tone="success">Published</Badge>;
+    case "IN_PROGRESS":
+      return <Badge tone="brand">In progress</Badge>;
+    case "DEPRECATED":
+      return <Badge tone="warning">Deprecated</Badge>;
+    case "RETIRED":
+      return <Badge tone="neutral">Retired</Badge>;
+    default:
+      return <Badge tone="neutral">Draft</Badge>;
+  }
+}
+
+/**
  * The STALE treatment: warning tint, the cause in plain language, and the way
  * back. A stale state that does not say why is just a broken screen.
  */

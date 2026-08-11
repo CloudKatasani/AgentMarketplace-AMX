@@ -9,7 +9,7 @@ human approved it.
 **Status: Phase 5 complete** — the full eight-stage lifecycle, the marketplace, signed evidence
 packs, demo mode protected by a test, nine industry packs, the Academy with credential-gated
 approver roles, the full export set, a Stripe-shaped billing adapter, propose-only AI assist,
-and the hardening pass: 14 Playwright tests against a production build, a performance tripwire
+and the hardening pass: 17 Playwright tests against a production build, a performance tripwire
 at ~50 tenants, twelve ADRs, and `DEMO.md`.
 
 ---
@@ -71,7 +71,7 @@ needed — every enum is a `String` column whose domain lives in `src/lib/enums.
 | `pnpm typecheck` | `tsc --noEmit`, strict |
 | `pnpm lint` | ESLint, including the no-hard-coded-colour rule |
 | `pnpm test` | Vitest against a real SQLite database (194 tests) |
-| `pnpm test:e2e` | Build, then Playwright against the production build (14 tests) |
+| `pnpm test:e2e` | Build, then Playwright against the production build (17 tests) |
 | `pnpm build` | Production build |
 | `pnpm seed` | Reference data + showcase tenant and its sandbox twin (idempotent) |
 | `pnpm seed:showcase` | Read-only showcase tenant only, without the writable twin |

@@ -55,7 +55,7 @@ export default async function StagePage({
   searchParams,
 }: {
   params: Promise<{ id: string; stage: string }>;
-  searchParams: Promise<{ diff?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ diff?: string; from?: string; to?: string; edit?: string }>;
 }) {
   const { id, stage: stageParam } = await params;
   const query = await searchParams;
@@ -160,7 +160,11 @@ export default async function StagePage({
   const statusByStage = Object.fromEntries(stageRuns.map((r) => [r.stageId, r.status]));
   const stageStatus = statusByStage[stageId] ?? "NOT_STARTED";
   const readOnly = session.isReadOnly;
-  const editingLocked = readOnly || lock.locked;
+  // The lock exists to make the consequence visible before someone types, not
+  // to prevent the edit. Asking to edit an approved or in-review stage is
+  // therefore allowed — and it is a deliberate act with its own URL.
+  const editing = query.edit === "1" && !readOnly;
+  const editingLocked = readOnly || (lock.locked && !editing);
 
   const diff = buildDiff(versions, query);
 
@@ -194,7 +198,16 @@ export default async function StagePage({
 
       {lock.locked && !readOnly ? (
         <InfoBanner>
-          <span className="font-medium">{lock.reason}</span> {lock.nextAction}
+          <span className="font-medium">{lock.reason}</span> {lock.nextAction}{" "}
+          {editing ? (
+            <Link href={`/agents/${agent.id}/stages/${stageId}`} className="font-medium">
+              Leave it as approved
+            </Link>
+          ) : (
+            <Link href={`/agents/${agent.id}/stages/${stageId}?edit=1`} className="font-medium">
+              Edit anyway
+            </Link>
+          )}
         </InfoBanner>
       ) : null}
 

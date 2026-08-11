@@ -7,31 +7,40 @@ choices. Performance sanity at ~50 orgs, ~200 agents, ~100 products, ~2,000 ques
 `DEMO.md`: the scripted 7-minute arc with per-step screen, talk track cue, and fallback."*
 
 Phase 5 wrote very little product code on purpose. What it did was **run** the product, at scale
-and in a browser, and fix what that found. Three product defects came out of it, which is the
+and in a browser, and fix what that found. Five product defects came out of it, which is the
 whole argument for the phase.
 
 ---
 
 ## 1 · What belongs in a browser test, and what does not
 
-The eight-stage walk is asserted against the engine in `tests/demo-arc.test.ts`, not through
-Chromium. Driving twenty-four approvals through a browser would test Playwright's form filling,
-take minutes, and fail for reasons that have nothing to do with governance. The engine test
-already proves the path exists and that every gate did its job.
+Both. `tests/demo-arc.test.ts` walks all eight stages against the engine with a full cast —
+author, product owner, data owner, governance officer — which is where the *peer* path lives and
+where twenty-four approvals cost nothing. `e2e/full-walk.spec.ts` walks the same eight stages in
+Chromium as **one person**, authoring every artifact in the real forms and approving each gate on
+a written self-attestation.
+
+They prove different things. The engine test proves the governance holds. The browser walk proves
+the forms in front of the criteria can actually be filled in — which is exactly what the last two
+defects in §2 were hiding.
 
 So the split is:
 
 | Layer | Proves | Where |
 |---|---|---|
 | Vitest, real SQLite | the governance holds | `tests/` (194 tests) |
-| Playwright, real build | a person can actually do it | `e2e/` (14 tests) |
+| Playwright, real build | a person can actually do it | `e2e/` (17 tests) |
 | `scripts/perf-sanity.ts` | it still holds at 50 tenants | `pnpm perf` |
 
 `e2e/` covers exactly what a human touches with their hands: onboarding inside the ten-minute
 budget, the guided tour landing on the coverage matrix, the validator's rejection *and its
-suggested fix*, a solo submit with a recorded attestation, a changes-requested round unlocking
-the stage, the two isolation probes, one academy path to a credential, and the seven-minute demo
-arc step by step.
+suggested fix*, the eight-stage solo walk to published, both cascade directions, a
+changes-requested round unlocking the stage, the two isolation probes, one academy path to a
+credential, and the seven-minute demo arc step by step.
+
+Both cascade paths are asserted in the browser, not only in the engine: a data product's major
+bump invalidating the certifications standing on it (the demo arc's 4:00 step), and an approved
+artifact being re-versioned, which makes its own gate stale with the cause in plain language.
 
 Two deliberate choices in that suite:
 
@@ -42,7 +51,7 @@ Two deliberate choices in that suite:
   the suite silently tests stale pages. That cost an hour of debugging a page that was already
   fixed.
 
-## 2 · The three defects the browser found
+## 2 · The five defects the browser found
 
 **The product-view inversion double-counted.** `Everything standing on this` listed one row per
 *binding*. An agent that both grounds on and queries Customer 360 — the seeded one does — appeared
@@ -66,6 +75,19 @@ somewhere writable.
 
 The end-to-end test asserts both halves of that: the certification goes STALE in the sandbox,
 **and** the showcase one tenant over is untouched. A demo that a demo can break is not a demo.
+
+**A published agent never said it was published.** The agent page carried archetype, risk tier,
+sensitivity and the certification badge — and nothing at all about lifecycle status. Certification
+and lifecycle are genuinely different (an agent can be certified but not yet published, or
+published and stale), so they are now two badges, never one.
+
+**The lock promised an edit path that did not exist.** `stageLockState` says, in its own words,
+that a locked stage is not frozen: editing re-versions the artifact, cascades the approval to
+STALE and raises a re-approval task, and the lock exists to make that consequence visible *before*
+someone types. The screen disabled every field and offered no way through — so the second cascade
+direction had no user-facing trigger at all. An approved or in-review stage now carries an
+**Edit anyway** link that unlocks the forms, alongside the sentence explaining what committing
+will cost. It is a deliberate act with its own URL, and the banner offers the way back.
 
 ## 3 · Performance sanity
 
@@ -117,7 +139,7 @@ retained for seven days, and the performance tripwire.
 ## 6 · Verification
 
 `pnpm typecheck`, `pnpm lint`, `pnpm pack:validate` (9 packs), `pnpm test` (**194 tests, 12
-files**), `pnpm build`, `pnpm test:e2e` (**14 tests, Chromium, against a production build**) and
+files**), `pnpm build`, `pnpm test:e2e` (**17 tests, Chromium, against a production build**) and
 `pnpm perf` all pass.
 
 **Not verified:** Postgres — the schema is written for both and the docker-compose file is there,

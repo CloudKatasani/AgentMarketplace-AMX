@@ -5,7 +5,7 @@ import { CriteriaList } from "@/components/criteria-list";
 import { StageRail } from "@/components/stage-rail";
 import { Button } from "@/components/ui/button";
 import { Band, Muted, PageTitle, Panel, SectionTitle } from "@/components/ui/primitives";
-import { Badge, CertificationBadge, StaleBanner } from "@/components/ui/status";
+import { Badge, CertificationBadge, LifecycleBadge, StaleBanner } from "@/components/ui/status";
 import { requireSessionContext } from "@/lib/auth/session-context";
 import { withOrg } from "@/lib/db/scope";
 import type { CertificationStatus } from "@/lib/enums";
@@ -81,6 +81,7 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
             {agent.archetype ? <Badge tone="neutral">{agent.archetype}</Badge> : null}
             {agent.riskTier ? <Badge tone="neutral">{agent.riskTier}</Badge> : null}
             {agent.sensitivity ? <Badge tone="neutral">{agent.sensitivity}</Badge> : null}
+            <LifecycleBadge status={agent.status} />
             <CertificationBadge status={agent.certification as CertificationStatus} />
           </div>
         </div>
