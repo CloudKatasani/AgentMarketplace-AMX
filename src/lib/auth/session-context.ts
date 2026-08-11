@@ -18,6 +18,8 @@ export type SessionContext = {
   userId: string;
   userName: string;
   userEmail: string;
+  /** Signed in through "start without an account"; can claim the workspace. */
+  isGuest: boolean;
   organizationId: string;
   organizationName: string;
   organizationSlug: string;
@@ -35,6 +37,14 @@ export async function getSessionContext(): Promise<SessionContext | null> {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return null;
+
+  // Name and email come from the row, not from the JWT: claiming a guest
+  // workspace changes both, and a session minted before the claim would
+  // otherwise keep calling that person "Guest" until they signed in again.
+  const account = await db.user.findUnique({
+    where: { id: userId },
+    select: { isGuest: true, name: true, email: true },
+  });
 
   const memberships = await db.membership.findMany({
     where: { userId, archivedAt: null },
@@ -64,8 +74,9 @@ export async function getSessionContext(): Promise<SessionContext | null> {
 
   return {
     userId,
-    userName: session.user?.name ?? "",
-    userEmail: session.user?.email ?? "",
+    userName: account?.name ?? session.user?.name ?? "",
+    userEmail: account?.email ?? session.user?.email ?? "",
+    isGuest: account?.isGuest ?? false,
     organizationId: chosen.organization.id,
     organizationName: chosen.organization.name,
     organizationSlug: chosen.organization.slug,

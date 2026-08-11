@@ -99,6 +99,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
 
+      {session.isGuest && !session.isReadOnly ? (
+        <div className="bg-band">
+          <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3 px-6 py-2">
+            <Badge tone="brand">Guest</Badge>
+            <p className="text-brand-ink">
+              This workspace is yours and everything in it is real — add an email and a password
+              to keep it.
+            </p>
+            <Link href="/admin" className="ml-auto font-medium">
+              Claim this workspace
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       {session.isReadOnly ? (
         <div className="bg-band">
           <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-6 py-2">

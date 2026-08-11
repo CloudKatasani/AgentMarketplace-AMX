@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { claimWorkspace, openWorkspace, signIn } from "./helpers";
+
 /**
  * The second human.
  *
@@ -20,7 +22,13 @@ test.describe("two people, one workspace", () => {
   let invitePath = "";
 
   test("an admin invites a colleague and gets a link to send", async ({ page }) => {
-    await onboard(page, founder, PASSWORD, stamp);
+    await openWorkspace(page, { name: `Two Player ${stamp}` });
+
+    // A guest cannot invite: an invitation grants a role, and the person
+    // granting it has to be reachable. Claiming is the unlock.
+    await page.goto("/admin");
+    await expect(page.getByText("Claim this workspace first")).toBeVisible();
+    await claimWorkspace(page, { name: "Dana Founder", email: founder, password: PASSWORD });
 
     await page.goto("/admin");
     await expect(page.locator("h1")).toContainText("Workspace settings");
@@ -107,27 +115,4 @@ test.describe("two people, one workspace", () => {
   });
 });
 
-async function onboard(page: Page, email: string, password: string, stamp: number) {
-  await page.goto("/onboarding");
-  await page.check('input[value="utilities"]');
-  await page.fill("#organizationName", `Two Player ${stamp}`);
-  await page.fill("#workspaceName", "Retail & Revenue");
-  await page.getByRole("button", { name: "Continue" }).click();
 
-  await page.waitForURL("**/onboarding/account**");
-  await page.fill("#name", "Dana Founder");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.getByRole("button", { name: "Create workspace" }).click();
-  await page.waitForURL("**/agents?tour=1**", { timeout: 60_000 });
-}
-
-async function signIn(page: Page, email: string, password: string) {
-  await page.goto("/signin");
-  if (page.url().includes("/signin")) {
-    await page.fill("#email", email);
-    await page.fill("#password", password);
-    await page.getByRole("button", { name: "Sign in" }).click();
-    await page.waitForURL("**/agents");
-  }
-}

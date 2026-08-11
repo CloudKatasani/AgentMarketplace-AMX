@@ -26,6 +26,15 @@
   --success: 30 123 52;            /* #1E7B34  passed criteria, certified badges */
   --warning: 180 83 9;             /* #B45309  warning and STALE */
   --warning-tint: 254 243 199;     /* #FEF3C7  STALE background */
+
+  /* Solid badge tints, added in the entry-flow pass. A translucent background
+     (`bg-success/10`) blends with whatever is behind it, so the same badge
+     cleared AA on white and failed it on --panel and --band. A badge's contrast
+     must not depend on where someone put it. */
+  --success-tint: 234 245 238;     /* #EAF5EE  success badge background (4.8:1) */
+  --brand-tint: 226 240 249;       /* #E2F0F9  brand badge background (6.4:1 with --brand-deep) */
+  --danger-tint: 251 233 233;      /* #FBE9E9  danger badge background (5.5:1) */
+  --ai-draft-tint: 243 238 252;    /* #F3EEFC  AI_DRAFT badge background (6.2:1) */
   --danger: 185 28 28;             /* #B91C1C  danger and veto */
   --ai-draft: 109 40 217;          /* #6D28D9  AI_DRAFT marker, paired with a dashed border */
 

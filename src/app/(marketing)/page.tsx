@@ -28,6 +28,9 @@ export default async function LandingPage() {
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-6">
           <span className="text-lg font-semibold tracking-tight">AMX</span>
           <nav className="ml-auto flex items-center gap-4">
+            <Link href="/catalog" className="text-surface no-underline">
+              Agent catalog
+            </Link>
             <Link href="/signin" className="text-surface no-underline">
               Sign in
             </Link>
@@ -35,7 +38,7 @@ export default async function LandingPage() {
               href="/onboarding"
               className="rounded bg-brand-deep px-3 py-1.5 text-surface no-underline"
             >
-              Start free
+              Open a workspace
             </Link>
           </nav>
         </div>
@@ -61,18 +64,27 @@ export default async function LandingPage() {
               {showcase ? (
                 <Link
                   href="/demo"
+                  prefetch={false}
                   className="inline-flex h-12 items-center rounded bg-brand-primary px-6 font-medium text-surface no-underline hover:bg-brand-deep"
                 >
                   Explore the live demo
                 </Link>
               ) : null}
               <Link
+                href="/catalog"
+                className="inline-flex h-12 items-center rounded border border-brand-primary px-6 font-medium no-underline hover:bg-band"
+              >
+                Browse the agent catalog
+              </Link>
+              <Link
                 href="/onboarding"
                 className="inline-flex h-12 items-center rounded border border-brand-primary px-6 font-medium no-underline hover:bg-band"
               >
-                Create a workspace
+                Open a workspace
               </Link>
-              <span className="text-muted">No card. Seeded workspace in about a minute.</span>
+              <span className="text-muted">
+                No account, no email, no card — a seeded workspace in one click.
+              </span>
             </div>
           </div>
         </section>

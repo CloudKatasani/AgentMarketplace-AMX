@@ -75,7 +75,9 @@ export default async function SignInPage({
 
             {params.error ? (
               <p className="rounded border-l-4 border-danger bg-danger/5 px-3 py-2 text-danger">
-                That email and password don&rsquo;t match an account.
+                That email and password don&rsquo;t match an account. If you started without one,
+                open a workspace below instead — guest workspaces have no password until you
+                claim them.
               </p>
             ) : null}
 
@@ -97,9 +99,24 @@ export default async function SignInPage({
           ) : null}
         </Panel>
 
-        <p className="mt-4 text-muted">
-          No account yet? <Link href="/onboarding">Create an organisation</Link>.
-        </p>
+        <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-4">
+          <p className="font-medium">No account?</p>
+          <Muted className="mt-1">
+            You do not need one. Open a workspace in a click, or read the whole agent catalog and
+            the live demo without signing in at all.
+          </Muted>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button asChild size="sm">
+              <Link href="/onboarding">Open a workspace</Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/catalog">Browse the agent catalog</Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/demo" prefetch={false}>Explore the live demo</Link>
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

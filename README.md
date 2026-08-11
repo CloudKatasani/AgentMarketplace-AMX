@@ -6,13 +6,15 @@ human approved it.
 `CLAUDE.md` is binding for work in this repository. `PROMPT.md` holds the phase plan,
 `PITCH.md` the positioning, `SKILLS.md` the skill register.
 
-**Status: Phase 7 complete** — the full eight-stage lifecycle, the marketplace, signed evidence
-packs, demo mode protected by a test, nine industry packs, the Academy with credential-gated
-approver roles, the full export set, a Stripe-shaped billing adapter, propose-only AI assist,
-the hardening pass (a performance tripwire at ~50 tenants, sixteen ADRs, `DEMO.md`), the
-multi-player gaps (invitations, workspace settings, white-label theming), and the Enterprise
-surface: a read-only API with hashed tokens, optional OIDC sign-in, and a WCAG 2.1 AA sweep —
-224 unit tests and 30 Playwright tests against a production build.
+**Status: shipped through the entry-flow pass** — the full eight-stage lifecycle, the
+marketplace, signed evidence packs, demo mode protected by a test, nine industry packs, the
+Academy with credential-gated approver roles, the full export set, a Stripe-shaped billing
+adapter, propose-only AI assist, the hardening pass (a performance tripwire at ~50 tenants,
+seventeen ADRs, `DEMO.md`), the multi-player gaps (invitations, workspace settings, white-label
+theming), the Enterprise surface (a read-only API with hashed tokens, optional OIDC sign-in, a
+WCAG 2.1 AA sweep), and a front door that asks for nothing: a public industry agent catalog and
+a one-click workspace with no account. 232 unit tests and 34 Playwright tests against a
+production build.
 
 ---
 
@@ -26,14 +28,18 @@ pnpm seed                     # reference data + the showcase tenant and its san
 pnpm dev
 ```
 
-Three ways in, in the order most people want them:
+Three ways in, none of which asks for an account (`docs/entry-flow.md` covers them in full):
 
-1. **Create your own organisation** at `/onboarding`. Pick an industry; you land in a workspace
-   that already has certified data products and an agent part-way through its lifecycle, with a
-   guided tour that ends on the coverage matrix. Under ten minutes, tested.
-2. **Browse the live demo** at `/demo` — the read-only showcase tenant, no sign-in.
-3. **Sign in** as any demo account printed by `pnpm seed` (password `amx-demo-2024`) to author,
-   approve, and run the breaking-change cascade in the writable sandbox workspace.
+1. **Read the agent catalog** at `/catalog` — every industry pack in full, with each agent's
+   questions and the certified metric that answers each one. No session at all.
+2. **Open a workspace** at `/onboarding` — pick an industry and you are in, with a seeded agent
+   part-way through its lifecycle and a guided tour. No email, no password, no card. Add them
+   later from settings to keep the workspace and to invite anyone.
+3. **Explore the live demo** at `/demo` — the read-only showcase tenant.
+
+Already have an account? `/signin`. The demo accounts printed by `pnpm seed` (password
+`amx-demo-2024`) can author, approve, and run the breaking-change cascade in the writable
+sandbox workspace.
 
 Giving the demo: `DEMO.md` is the scripted seven-minute arc, with the click, the line, and a
 fallback for each step.
@@ -44,8 +50,9 @@ needed — every enum is a `String` column whose domain lives in `src/lib/enums.
 
 ## What you can do today
 
-1. **Create an organisation** — pick an industry, and land in a seeded workspace with a guided
-   tour that ends on the coverage matrix. Never an empty screen.
+1. **Open a workspace in one click** — pick an industry, no account asked for, and land in a
+   seeded workspace with a guided tour that ends on the coverage matrix. Never an empty screen.
+   Read the whole industry catalog first at `/catalog` if you would rather look before landing.
 2. **Author Stages 1–4**: the persona and question register, the charter (hard-blocked until
    Stage 1 is real), bindings and coverage, and the grounding pack and tool specs.
 3. **Declare a binding** and watch the validator refuse a bad one in plain language with a
@@ -79,8 +86,8 @@ needed — every enum is a `String` column whose domain lives in `src/lib/enums.
 | `pnpm dev` | Development server |
 | `pnpm typecheck` | `tsc --noEmit`, strict |
 | `pnpm lint` | ESLint, including the no-hard-coded-colour rule |
-| `pnpm test` | Vitest against a real SQLite database (224 tests) |
-| `pnpm test:e2e` | Build, then Playwright against the production build (30 tests) |
+| `pnpm test` | Vitest against a real SQLite database (232 tests) |
+| `pnpm test:e2e` | Build, then Playwright against the production build (34 tests) |
 | `pnpm build` | Production build |
 | `pnpm seed` | Reference data + showcase tenant and its sandbox twin (idempotent) |
 | `pnpm seed:showcase` | Read-only showcase tenant only, without the writable twin |
@@ -116,7 +123,8 @@ test asserts the gate engine, lifecycle registry, and validator never import it.
 
 ```
 src/
-  app/                     (app)/ agents · data-products · audit · signin · onboarding
+  app/                     (marketing)/ landing · catalog · (app)/ agents · data-products ·
+                           audit · admin · api/v1 · signin · onboarding · invite
   lib/
     lifecycle/stages.ts    8-stage registry; exit criteria are pure functions
     gates/                 requestTransition() · recordDecision() · cascade
@@ -142,8 +150,11 @@ assist. `docs/phase-5-design.md` covers the hardening pass and what it found.
 `docs/phase-6-design.md` covers the multi-player gaps — invitations, the settings screen, and
 white-label — and is candid about what was missing and why it mattered.
 
+`docs/entry-flow.md` covers the three doors into the product — the public catalog, the
+no-account workspace, and claiming — and what changed elsewhere to make them safe.
+
 `docs/phase-7-design.md` covers the API, the accessibility sweep and what it found in the design
 system, optional OIDC sign-in, and how far the Postgres claim is actually proven.
 
-`docs/adr/` holds sixteen architecture decision records — the decisions a reader would otherwise
+`docs/adr/` holds seventeen architecture decision records — the decisions a reader would otherwise
 have to reconstruct from the code, each with what was rejected and what it costs.

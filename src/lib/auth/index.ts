@@ -9,13 +9,13 @@
  * server-side in `src/lib/gates/authorization.ts` against the database, every
  * time — a session only says who is asking.
  */
-import { compare, hash } from "bcryptjs";
 import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 
+import { verifyPassword } from "./password";
 import { ssoProviders, SSO_PROVIDER_ID } from "./sso";
 
 declare module "next-auth" {
@@ -38,11 +38,7 @@ const credentialsSchema = z.object({
  */
 const authDb = new PrismaClient();
 
-export const PASSWORD_ROUNDS = 10;
-
-export function hashPassword(password: string): Promise<string> {
-  return hash(password, PASSWORD_ROUNDS);
-}
+export { PASSWORD_ROUNDS, hashPassword } from "./password";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   session: { strategy: "jwt" },
@@ -70,7 +66,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
         if (!user?.passwordHash || user.archivedAt) return null;
 
-        const valid = await compare(parsed.data.password, user.passwordHash);
+        const valid = await verifyPassword(parsed.data.password, user.passwordHash);
         if (!valid) return null;
 
         return { id: user.id, email: user.email, name: user.name };

@@ -18,6 +18,7 @@ import { appendAuditEvent } from "@/lib/audit/append";
 import type { AmxPrismaClient } from "@/lib/db/tenancy";
 import { runAsSystem } from "@/lib/db/tenancy";
 import { assertMutable, requireMembership } from "@/lib/gates/authorization";
+import { canInviteFrom } from "@/lib/organizations/guest";
 import { roleKeySchema, roleName, type RoleKey } from "@/lib/roles";
 
 /** Long enough that guessing is not a strategy, short enough to paste. */
@@ -67,6 +68,19 @@ export async function createInvitation(
     return {
       ok: false,
       detail: "Only an Organisation Admin can invite people into this workspace.",
+    };
+  }
+
+  // An invitation grants a role, and a role decides who may sign a gate. An
+  // identity nobody can be contacted at should not be handing those out.
+  const actor = await runAsSystem(() =>
+    db.user.findUnique({ where: { id: input.actorUserId }, select: { isGuest: true } }),
+  );
+  if (!canInviteFrom(actor?.isGuest ?? false)) {
+    return {
+      ok: false,
+      detail:
+        "Add your own email and a password in settings first — an invitation grants a role, and the person granting it has to be reachable.",
     };
   }
 

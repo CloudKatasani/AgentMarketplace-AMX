@@ -75,15 +75,28 @@ test("the screens a practitioner works in are accessible", async ({ page }) => {
   await scan(page, "stage 7 — certification");
 });
 
-test("onboarding is accessible, since it is the first thing anyone meets", async ({ page }) => {
+test("the way in is accessible, since it is the first thing anyone meets", async ({ page }) => {
+  // These files run serially in one worker, so an earlier test's session can
+  // still be in the jar — and /onboarding redirects anyone already signed in.
+  // Start as a stranger, which is who this test is about.
+  await page.context().clearCookies();
+
+  // Everything here is reachable without an account, which is exactly why it
+  // has to pass: for most visitors this is the entire product.
+  await page.goto("/catalog");
+  await scan(page, "agent catalog — industries");
+
+  await page.goto("/catalog/utilities");
+  await scan(page, "agent catalog — one industry");
+
   await page.goto("/onboarding");
-  await scan(page, "onboarding — industry");
+  await scan(page, "onboarding");
 
   await page.check('input[value="utilities"]');
   await page.fill("#organizationName", "Accessible Co");
-  await page.getByRole("button", { name: "Continue" }).click();
-  await page.waitForURL("**/onboarding/account**");
-  await scan(page, "onboarding — account");
+  await page.getByRole("button", { name: "Open my workspace" }).click();
+  await page.waitForURL("**/agents?tour=1**", { timeout: 60_000 });
+  await scan(page, "first screen of a new workspace");
 });
 
 /** Scans the page and reports every violation with the element that caused it. */

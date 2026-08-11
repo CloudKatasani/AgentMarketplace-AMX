@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { claimWorkspace, openWorkspace, signIn } from "./helpers";
+
 /**
  * The parts of the lifecycle a person actually touches.
  *
@@ -25,18 +27,8 @@ test("onboarding lands in a working workspace well inside the ten-minute budget"
   await page.goto("/onboarding");
   await expect(page.locator("h1")).toContainText("Pick an industry");
 
-  await page.check('input[value="utilities"]');
-  await page.fill("#organizationName", `Northwind ${stamp}`);
-  await page.fill("#workspaceName", "Retail & Revenue");
-  await page.getByRole("button", { name: "Continue" }).click();
-
-  await page.waitForURL("**/onboarding/account**");
-  await page.fill("#name", "Dana Founder");
-  await page.fill("#email", email);
-  await page.fill("#password", PASSWORD);
-  await page.getByRole("button", { name: "Create workspace" }).click();
-
-  await page.waitForURL("**/agents?tour=1**", { timeout: 60_000 });
+  // One screen, no account: the industry choice is the sign-up.
+  await openWorkspace(page, { name: `Northwind ${stamp}` });
   const elapsedSeconds = (Date.now() - started) / 1000;
 
   // The budget is ten minutes. Anything near it means the flow has grown a step.
@@ -47,10 +39,17 @@ test("onboarding lands in a working workspace well inside the ten-minute budget"
 
   const tour = page.locator("aside");
   await expect(tour).toContainText("Your workspace is not empty");
+
+  // Guests are told what they have and what claiming it buys them.
+  await expect(page.getByText("Claim this workspace")).toBeVisible();
+
+  // Claimed here so the later tests can sign back in — the same thing a person
+  // does when they decide to keep the workspace.
+  await claimWorkspace(page, { name: "Dana Founder", email, password: PASSWORD });
 });
 
 test("the guided tour ends on the coverage matrix", async ({ page }) => {
-  await signIn(page, email);
+  await signIn(page, email, PASSWORD);
   await page.goto("/agents");
 
   const link = page.getByRole("link", { name: "Customer Churn Advisor" });
@@ -74,7 +73,7 @@ test("the guided tour ends on the coverage matrix", async ({ page }) => {
 test("the validator refuses a bad binding in words a business user can act on", async ({
   page,
 }) => {
-  await signIn(page, email);
+  await signIn(page, email, PASSWORD);
   await page.goto(`/agents/${agentId}/stages/3-data-product-binding`);
 
   const form = page.locator('form:has(button:has-text("Validate and commit"))').first();
@@ -94,7 +93,7 @@ test("the validator refuses a bad binding in words a business user can act on", 
 test("a stage can be submitted solo and approved with a recorded attestation", async ({
   page,
 }) => {
-  await signIn(page, email);
+  await signIn(page, email, PASSWORD);
   await page.goto(`/agents/${agentId}/stages/1-consumption-discovery`);
 
   const submitForm = page.locator('form:has(button:has-text("Submit stage 1 for review"))');
@@ -115,7 +114,7 @@ test("a stage can be submitted solo and approved with a recorded attestation", a
 });
 
 test("a changes-requested round unlocks the stage and opens a second gate", async ({ page }) => {
-  await signIn(page, email);
+  await signIn(page, email, PASSWORD);
 
   // Stage 2 solo-submit, then request changes on it.
   await page.goto(`/agents/${agentId}/stages/2-agent-charter`);
@@ -138,25 +137,21 @@ test("a changes-requested round unlocks the stage and opens a second gate", asyn
 });
 
 test("one organisation cannot reach another's agent", async ({ page }) => {
-  await signIn(page, email);
+  await signIn(page, email, PASSWORD);
 
   // The showcase agent belongs to a different tenant entirely.
   const response = await page.goto("/agents/cmshowcase-not-mine");
   expect(response?.status()).toBe(404);
 
   // And the demo viewer cannot mutate anything, even by finding the form.
+  //
+  // Entering the demo means arriving as a visitor: /demo deliberately refuses to
+  // touch a session that already exists, so signing out first is the only way
+  // in — which is exactly what a real visitor does by never having signed in.
+  await page.context().clearCookies();
   await page.goto("/demo");
   await page.waitForURL("**/marketplace");
   await page.goto("/data-products");
   await expect(page.getByText("Publish a new contract version")).toHaveCount(0);
 });
 
-async function signIn(page: import("@playwright/test").Page, userEmail: string) {
-  await page.goto("/signin");
-  if (page.url().includes("/signin")) {
-    await page.fill("#email", userEmail);
-    await page.fill("#password", PASSWORD);
-    await page.getByRole("button", { name: "Sign in" }).click();
-    await page.waitForURL("**/agents");
-  }
-}

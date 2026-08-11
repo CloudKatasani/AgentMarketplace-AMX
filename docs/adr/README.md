@@ -26,3 +26,4 @@ legible now.
 | [0014](0014-theme-override-is-data.md) | A tenant's theme override is validated data, never a stylesheet | Accepted |
 | [0015](0015-a-read-only-api-with-hashed-tokens.md) | The API is read-only, and its tokens are stored as hashes | Accepted |
 | [0016](0016-sso-authenticates-it-never-authorises.md) | SSO authenticates; it never authorises | Accepted |
+| [0017](0017-no-account-to-start.md) | Starting a workspace asks for nothing, and the catalogue asks for less | Accepted |

@@ -20,13 +20,20 @@ export function Badge({
   children: ReactNode;
   className?: string;
 }) {
+  /*
+   * Solid tints, never alpha. A translucent badge background blends with
+   * whatever surface it lands on, so `bg-success/10 text-success` cleared AA on
+   * white and failed it on --panel and --band — the same badge, two verdicts,
+   * decided by where someone dropped it. Each tint below is a token whose
+   * contrast with its text colour is fixed wherever it appears.
+   */
   const tones = {
     neutral: "bg-band text-brand-ink",
-    brand: "bg-brand-accent/15 text-brand-deep",
-    success: "bg-success/10 text-success",
+    brand: "bg-brand-tint text-brand-deep",
+    success: "bg-success-tint text-success",
     warning: "bg-warning-tint text-warning",
-    danger: "bg-danger/10 text-danger",
-    "ai-draft": "border border-dashed border-ai-draft bg-ai-draft/5 text-ai-draft",
+    danger: "bg-danger-tint text-danger",
+    "ai-draft": "border border-dashed border-ai-draft bg-ai-draft-tint text-ai-draft",
   } as const;
 
   return (

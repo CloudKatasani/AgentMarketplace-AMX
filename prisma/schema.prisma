@@ -25,6 +25,10 @@ model User {
   email         String    @unique
   name          String
   passwordHash  String?
+  /// Created by "start without an account". The workspace is real and the work
+  /// is kept; the identity is a placeholder until someone claims it with an
+  /// email and a password.
+  isGuest       Boolean   @default(false)
   emailVerified DateTime?
   image         String?
   createdAt     DateTime  @default(now())

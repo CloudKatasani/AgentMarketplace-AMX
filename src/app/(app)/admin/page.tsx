@@ -29,6 +29,7 @@ import {
 } from "@/lib/theme/override";
 
 import {
+  claimWorkspaceAction,
   inviteMemberAction,
   issueApiTokenAction,
   revokeApiTokenAction,
@@ -91,6 +92,43 @@ export default async function AdminPage() {
         </Band>
       ) : null}
 
+      {session.isGuest ? (
+        <Panel>
+          <SectionTitle>Claim this workspace</SectionTitle>
+          <Muted className="mt-1 max-w-prose">
+            You started without an account, which is why nothing here asked for an email. Adding
+            one keeps this workspace — every agent, approval and audit event stays exactly as it
+            is, on the same identity — and it is what lets you invite anyone else in.
+          </Muted>
+
+          <ActionForm action={claimWorkspaceAction} className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div>
+              <Label htmlFor="claimName">Your name</Label>
+              <Input id="claimName" name="name" required minLength={2} />
+            </div>
+            <div>
+              <Label htmlFor="claimEmail">Email</Label>
+              <Input id="claimEmail" name="email" type="email" required />
+            </div>
+            <div>
+              <Label htmlFor="claimPassword" hint="at least 8 characters">
+                Password
+              </Label>
+              <Input
+                id="claimPassword"
+                name="password"
+                type="password"
+                required
+                minLength={8}
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <SubmitButton pendingLabel="Claiming…">Claim it</SubmitButton>
+            </div>
+          </ActionForm>
+        </Panel>
+      ) : null}
+
       <Panel>
         <SectionTitle>People</SectionTitle>
         <Muted className="mt-1 max-w-prose">
@@ -146,10 +184,17 @@ export default async function AdminPage() {
           link appears here for you to send.
         </Muted>
 
+        {session.isGuest ? (
+          <Band className="mt-3">
+            Claim this workspace first. An invitation grants a role, and a role decides who may
+            sign a gate — the person handing that out has to be reachable.
+          </Band>
+        ) : null}
+
         <ActionForm action={inviteMemberAction} className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" required disabled={readOnly} />
+            <Input id="email" name="email" type="email" required disabled={readOnly || session.isGuest} />
           </div>
           <div>
             <Label htmlFor="roleKey">Role</Label>
@@ -157,7 +202,7 @@ export default async function AdminPage() {
               id="roleKey"
               name="roleKey"
               defaultValue="agent-product-owner"
-              disabled={readOnly}
+              disabled={readOnly || session.isGuest}
               className="h-10 w-full rounded border border-border bg-surface px-3 text-body"
             >
               {ROLES.map((role) => (
@@ -167,7 +212,7 @@ export default async function AdminPage() {
               ))}
             </select>
           </div>
-          <SubmitButton disabled={readOnly} pendingLabel="Inviting…">
+          <SubmitButton disabled={readOnly || session.isGuest} pendingLabel="Inviting…">
             Send invitation
           </SubmitButton>
         </ActionForm>

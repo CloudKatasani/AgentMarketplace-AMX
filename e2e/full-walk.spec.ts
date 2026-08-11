@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { claimWorkspace, openWorkspace, signIn } from "./helpers";
+
 /**
  * One practitioner, one browser, eight gates, a published agent.
  *
@@ -24,7 +26,10 @@ test.describe("the full eight-stage walk, solo, in a browser", () => {
     // Eight stages of authoring and approving is a long session by design.
     test.setTimeout(240_000);
 
-    await onboard(page, email, PASSWORD, stamp);
+    await openWorkspace(page, { name: `Solo Walk ${stamp}` });
+    // Claimed straight away: this walk signs back in twice, and a guest has no
+    // password to sign in with.
+    await claimWorkspace(page, { name: "Dana Founder", email, password: PASSWORD });
     agentId = await openStarterAgent(page);
 
     // ── Stages 1–3 · already authored by the starter workspace ──
@@ -257,26 +262,6 @@ function formWith(page: Page, buttonText: string) {
   return page.locator(`form:has(button:has-text("${buttonText}"))`).first();
 }
 
-async function onboard(
-  page: Page,
-  email: string,
-  password: string,
-  stamp: number,
-): Promise<void> {
-  await page.goto("/onboarding");
-  await page.check('input[value="utilities"]');
-  await page.fill("#organizationName", `Solo Walk ${stamp}`);
-  await page.fill("#workspaceName", "Retail & Revenue");
-  await page.getByRole("button", { name: "Continue" }).click();
-
-  await page.waitForURL("**/onboarding/account**");
-  await page.fill("#name", "Dana Founder");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.getByRole("button", { name: "Create workspace" }).click();
-  await page.waitForURL("**/agents?tour=1**", { timeout: 60_000 });
-}
-
 async function openStarterAgent(page: Page): Promise<string> {
   await page.goto("/agents");
   await page.getByRole("link", { name: "Customer Churn Advisor" }).click();
@@ -284,12 +269,3 @@ async function openStarterAgent(page: Page): Promise<string> {
   return page.url().split("/agents/")[1];
 }
 
-async function signIn(page: Page, email: string, password: string): Promise<void> {
-  await page.goto("/signin");
-  if (page.url().includes("/signin")) {
-    await page.fill("#email", email);
-    await page.fill("#password", password);
-    await page.getByRole("button", { name: "Sign in" }).click();
-    await page.waitForURL("**/agents");
-  }
-}

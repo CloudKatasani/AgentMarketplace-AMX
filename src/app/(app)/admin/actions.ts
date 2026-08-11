@@ -6,6 +6,7 @@ import type { ActionState } from "@/app/(app)/agents/[id]/actions";
 import { requireSessionContext } from "@/lib/auth/session-context";
 import { withOrg } from "@/lib/db/scope";
 import { issueApiToken, revokeApiToken } from "@/lib/api/tokens";
+import { claimWorkspace } from "@/lib/organizations/guest";
 import { createInvitation, revokeInvitation } from "@/lib/organizations/invitations";
 import {
   setCredentialPolicy,
@@ -177,4 +178,31 @@ export async function revokeApiTokenAction(
 
   revalidatePath("/admin");
   return { ok: result.ok, message: result.detail };
+}
+
+export async function claimWorkspaceAction(
+  _previous: ActionState | undefined,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireSessionContext();
+
+  if (!session.isGuest) {
+    return { ok: false, message: "This workspace has already been claimed." };
+  }
+
+  const result = await claimWorkspace({
+    userId: session.userId,
+    name: String(formData.get("name") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    password: String(formData.get("password") ?? ""),
+  });
+
+  if (!result.ok) return { ok: false, message: result.detail };
+
+  revalidatePath("/", "layout");
+  return {
+    ok: true,
+    message:
+      "Claimed. Everything in this workspace is unchanged and now belongs to that email — sign in with it next time.",
+  };
 }
