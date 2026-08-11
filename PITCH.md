@@ -1,4 +1,4 @@
-# PITCH.md — AMX Positioning Narrative (Top-Consulting Lens)
+# PITCH.md — AMX Positioning Narrative 
 
 The strategic case, structured SCR, written to be defensible in front of a top AI or product
 company's leadership. Action titles carry the answer; every section closes with a synthesis
