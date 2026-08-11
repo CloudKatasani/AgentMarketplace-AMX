@@ -6,11 +6,12 @@ human approved it.
 `CLAUDE.md` is binding for work in this repository. `PROMPT.md` holds the phase plan,
 `PITCH.md` the positioning, `SKILLS.md` the skill register.
 
-**Status: Phase 5 complete** — the full eight-stage lifecycle, the marketplace, signed evidence
+**Status: Phase 6 complete** — the full eight-stage lifecycle, the marketplace, signed evidence
 packs, demo mode protected by a test, nine industry packs, the Academy with credential-gated
 approver roles, the full export set, a Stripe-shaped billing adapter, propose-only AI assist,
-and the hardening pass: 17 Playwright tests against a production build, a performance tripwire
-at ~50 tenants, twelve ADRs, and `DEMO.md`.
+the hardening pass (21 Playwright tests against a production build, a performance tripwire at
+~50 tenants, fourteen ADRs, `DEMO.md`), and the multi-player gaps: invitations, the workspace
+settings screen, and white-label theming.
 
 ---
 
@@ -62,6 +63,10 @@ needed — every enum is a `String` column whose domain lives in `src/lib/enums.
 10. **Browse the marketplace** through a persona lens, and invert it: from a data product, every
     agent standing on it.
 11. **Read the audit trail**, hash-chained and verified on screen.
+12. **Invite a colleague** from `/admin`, grant them a role, and have them sign a gate you
+    submitted — a real peer approval, badged differently from a self-attestation.
+13. **Rebrand a workspace** on Enterprise by overriding design tokens; anything that is not a
+    colour is refused in plain language.
 
 ## Commands
 
@@ -70,8 +75,8 @@ needed — every enum is a `String` column whose domain lives in `src/lib/enums.
 | `pnpm dev` | Development server |
 | `pnpm typecheck` | `tsc --noEmit`, strict |
 | `pnpm lint` | ESLint, including the no-hard-coded-colour rule |
-| `pnpm test` | Vitest against a real SQLite database (194 tests) |
-| `pnpm test:e2e` | Build, then Playwright against the production build (17 tests) |
+| `pnpm test` | Vitest against a real SQLite database (212 tests) |
+| `pnpm test:e2e` | Build, then Playwright against the production build (21 tests) |
 | `pnpm build` | Production build |
 | `pnpm seed` | Reference data + showcase tenant and its sandbox twin (idempotent) |
 | `pnpm seed:showcase` | Read-only showcase tenant only, without the writable twin |
@@ -129,5 +134,8 @@ bugs that only showed up when the app was actually driven in a browser. `docs/ph
 and `docs/phase-4-design.md` cover stages 5–8 and the packs, academy, exports, billing and AI
 assist. `docs/phase-5-design.md` covers the hardening pass and what it found.
 
-`docs/adr/` holds twelve architecture decision records — the decisions a reader would otherwise
+`docs/phase-6-design.md` covers the multi-player gaps — invitations, the settings screen, and
+white-label — and is candid about what was missing and why it mattered.
+
+`docs/adr/` holds fourteen architecture decision records — the decisions a reader would otherwise
 have to reconstruct from the code, each with what was rejected and what it costs.

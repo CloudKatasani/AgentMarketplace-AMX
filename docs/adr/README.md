@@ -22,3 +22,5 @@ legible now.
 | [0010](0010-industry-packs-as-declarative-yaml.md) | Industry packs are declarative YAML, validated on load | Accepted |
 | [0011](0011-adapters-for-analytics-and-billing.md) | Analytics and billing sit behind adapters | Accepted |
 | [0012](0012-sqlite-in-development-postgres-in-production.md) | SQLite in development, Postgres in production | Accepted |
+| [0013](0013-invitations-and-the-second-human.md) | An invitation is a single-use token, and the only way into a workspace | Accepted |
+| [0014](0014-theme-override-is-data.md) | A tenant's theme override is validated data, never a stylesheet | Accepted |

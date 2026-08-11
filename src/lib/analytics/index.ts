@@ -22,7 +22,11 @@ export type AnalyticsEventName =
   | "academy_credential_awarded"
   | "export_downloaded"
   | "upgrade_prompt_shown"
-  | "ai_draft_proposed";
+  | "ai_draft_proposed"
+  | "org_invited"
+  | "org_joined"
+  | "member_role_changed"
+  | "theme_override_saved";
 
 export type TrackInput = {
   name: AnalyticsEventName;

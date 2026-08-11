@@ -24,6 +24,8 @@ export type SessionContext = {
   planTier: string;
   isReadOnly: boolean;
   isShowcase: boolean;
+  /** Raw JSON from `Organization.themeOverride`; parsed by the shell. */
+  themeOverride: string | null;
   roleKeys: string[];
   /** Every organisation the user belongs to, for the switcher. */
   memberships: { id: string; name: string; slug: string; isShowcase: boolean }[];
@@ -47,6 +49,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
           planTier: true,
           isReadOnly: true,
           isShowcase: true,
+          themeOverride: true,
           archivedAt: true,
         },
       },
@@ -69,6 +72,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
     planTier: chosen.organization.planTier,
     isReadOnly: chosen.organization.isReadOnly,
     isShowcase: chosen.organization.isShowcase,
+    themeOverride: chosen.organization.themeOverride,
     roleKeys: chosen.roles.map((r) => r.roleId),
     memberships: active.map((m) => ({
       id: m.organization.id,

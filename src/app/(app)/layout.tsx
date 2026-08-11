@@ -6,6 +6,9 @@ import { getSessionContext } from "@/lib/auth/session-context";
 import { switchWorkspaceAction } from "@/app/(app)/switch-workspace";
 import { GuidedTour } from "@/components/guided-tour";
 import { Badge } from "@/components/ui/status";
+import type { PlanTier } from "@/lib/enums";
+import { can } from "@/lib/plans/features";
+import { readThemeOverride, toCssVariables } from "@/lib/theme/override";
 
 /**
  * The app shell.
@@ -25,10 +28,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/data-products", label: "Data products" },
     { href: "/academy", label: "Academy" },
     { href: "/audit", label: "Audit trail" },
+    ...(session.roleKeys.includes("org-admin")
+      ? [{ href: "/admin", label: "Settings" }]
+      : []),
   ];
+
+  // White-label: the tenant's override re-declares the same token names the
+  // default theme uses, rebuilt from parsed integers rather than echoed text.
+  // Losing the plan drops the override rather than stranding a rebrand nobody
+  // can see the controls for.
+  const theme = can(session.planTier as PlanTier, "whiteLabel")
+    ? readThemeOverride(session.themeOverride)
+    : null;
+  const themeCss = theme ? toCssVariables(theme) : "";
 
   return (
     <div className="flex min-h-screen flex-col">
+      {themeCss ? <style dangerouslySetInnerHTML={{ __html: themeCss }} /> : null}
       <header className="bg-brand-primary text-surface">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-6">
           <Link href="/agents" className="text-surface no-underline">
