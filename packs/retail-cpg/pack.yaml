@@ -111,6 +111,174 @@ dataProducts:
     grain: supplier / week
     unit: percent
     semanticRef: semantic.supply_signals.supplier_fill_rate
+- key: store-operations-360
+  name: Store Operations 360
+  description: Labour, shrink, and execution metrics across the store estate.
+  domainKey: store-operations
+  owner: Store Operations Analytics
+  contractVersion: 1.4.0
+  semanticModelVersion: 1.4.0
+  layer: GOLD
+  qualityScore: 89
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: labour_hours_per_sale
+    name: Labour hours per sale
+    definition: Rostered hours per thousand units sold, by store format.
+    grain: store / week
+    unit: hours
+    semanticRef: semantic.store_operations_360.labour_hours_per_sale
+  - key: shrink_rate
+    name: Shrink rate
+    definition: Unaccounted stock loss as a share of retail value.
+    grain: store / month
+    unit: percent
+    semanticRef: semantic.store_operations_360.shrink_rate
+- key: ecommerce-funnel
+  name: Ecommerce Funnel
+  description: Traffic, conversion, and basket metrics across digital storefronts.
+  domainKey: ecommerce
+  owner: Digital Commerce Analytics
+  contractVersion: 2.0.0
+  semanticModelVersion: 2.0.0
+  layer: GOLD
+  qualityScore: 91
+  sensitivity: INTERNAL
+  freshnessSlaHours: 6
+  metrics:
+  - key: conversion_rate
+    name: Conversion rate
+    definition: Sessions ending in a completed order, as a share of sessions.
+    grain: channel / day
+    unit: percent
+    semanticRef: semantic.ecommerce_funnel.conversion_rate
+  - key: basket_abandonment_rate
+    name: Basket abandonment rate
+    definition: Baskets created but not converted within the session window.
+    grain: channel / day
+    unit: percent
+    semanticRef: semantic.ecommerce_funnel.basket_abandonment_rate
+- key: loyalty-and-crm
+  name: Loyalty & CRM
+  description: Membership, repeat purchase, and campaign response metrics.
+  domainKey: customer-loyalty
+  owner: Customer Analytics
+  contractVersion: 1.3.0
+  semanticModelVersion: 1.3.0
+  layer: GOLD
+  qualityScore: 88
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: repeat_purchase_rate
+    name: Repeat purchase rate
+    definition: Share of members purchasing again within ninety days.
+    grain: segment / month
+    unit: percent
+    semanticRef: semantic.loyalty_and_crm.repeat_purchase_rate
+  - key: loyalty_penetration
+    name: Loyalty penetration
+    definition: Share of sales identified to a loyalty member.
+    grain: store / month
+    unit: percent
+    semanticRef: semantic.loyalty_and_crm.loyalty_penetration
+- key: pricing-and-promotions
+  name: Pricing & Promotions
+  description: Promotional lift, funding, and margin impact by mechanic and category.
+  domainKey: merchandising
+  owner: Pricing Analytics
+  contractVersion: 1.2.0
+  semanticModelVersion: 1.2.0
+  layer: GOLD
+  qualityScore: 87
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: promotion_roi
+    name: Promotion ROI
+    definition: Incremental margin over promotional investment for a mechanic.
+    grain: campaign
+    unit: ratio
+    semanticRef: semantic.pricing_and_promotions.promotion_roi
+  - key: price_index
+    name: Price index
+    definition: Basket price relative to the named competitor set.
+    grain: category / week
+    unit: index
+    semanticRef: semantic.pricing_and_promotions.price_index
+- key: assortment-and-space
+  name: Assortment & Space
+  description: Range productivity and space allocation metrics by category and format.
+  domainKey: merchandising
+  owner: Category Management
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 86
+  sensitivity: INTERNAL
+  freshnessSlaHours: 168
+  metrics:
+  - key: range_productivity
+    name: Range productivity
+    definition: Sales per linear metre of shelf, by category and format.
+    grain: category / month
+    unit: currency
+    semanticRef: semantic.assortment_and_space.range_productivity
+  - key: sku_rationalisation_rate
+    name: SKU rationalisation rate
+    definition: Share of listed SKUs contributing below the tail threshold.
+    grain: category / quarter
+    unit: percent
+    semanticRef: semantic.assortment_and_space.sku_rationalisation_rate
+- key: fulfilment-and-delivery
+  name: Fulfilment & Delivery
+  description: Pick, pack, and last-mile metrics for online and wholesale orders.
+  domainKey: supply-chain
+  owner: Fulfilment Analytics
+  contractVersion: 1.2.0
+  semanticModelVersion: 1.2.0
+  layer: GOLD
+  qualityScore: 90
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: on_time_delivery
+    name: On-time delivery
+    definition: Orders delivered within the promised slot, as a share of orders.
+    grain: network / week
+    unit: percent
+    semanticRef: semantic.fulfilment_and_delivery.on_time_delivery
+  - key: cost_per_order
+    name: Cost per order
+    definition: Fully loaded fulfilment cost per delivered order.
+    grain: network / month
+    unit: currency
+    semanticRef: semantic.fulfilment_and_delivery.cost_per_order
+- key: returns-and-reverse
+  name: Returns & Reverse Logistics
+  description: Return rate, reason, and recovery metrics across channels.
+  domainKey: ecommerce
+  owner: Returns Analytics
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 84
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: return_rate
+    name: Return rate
+    definition: Units returned as a share of units sold, by category and channel.
+    grain: category / month
+    unit: percent
+    semanticRef: semantic.returns_and_reverse.return_rate
+  - key: resale_recovery_rate
+    name: Resale recovery rate
+    definition: Value recovered from returned stock as a share of original retail.
+    grain: category / quarter
+    unit: percent
+    semanticRef: semantic.returns_and_reverse.resale_recovery_rate
 starterAgents:
 - key: availability-advisor
   name: Availability Advisor

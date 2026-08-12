@@ -173,6 +173,186 @@ dataProducts:
     grain: feeder / month
     unit: minutes
     semanticRef: semantic.network_reliability.saidi_minutes
+- key: field-service-operations
+  name: Field Service Operations
+  description: Certified job, appointment, and crew metrics across planned and reactive field work.
+  domainKey: field-services
+  owner: Field Operations Analytics
+  contractVersion: 1.4.0
+  semanticModelVersion: 1.4.0
+  layer: GOLD
+  qualityScore: 88
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: first_time_fix_rate
+    name: First-time fix rate
+    definition: Share of field jobs resolved on the first visit, excluding jobs abandoned for access.
+    grain: job / month
+    unit: percent
+    semanticRef: semantic.field_service_operations.first_time_fix_rate
+  - key: appointment_adherence
+    name: Appointment adherence
+    definition: Share of booked appointments met inside the promised window.
+    grain: appointment / week
+    unit: percent
+    semanticRef: semantic.field_service_operations.appointment_adherence
+  - key: mean_time_to_attend
+    name: Mean time to attend
+    definition: Average hours from job creation to a crew arriving on site.
+    grain: job / month
+    unit: hours
+    semanticRef: semantic.field_service_operations.mean_time_to_attend
+- key: asset-health-register
+  name: Asset Health Register
+  description: Condition, criticality, and replacement priority for network assets, certified against the asset register.
+  domainKey: asset-management
+  owner: Asset Strategy
+  contractVersion: 2.0.0
+  semanticModelVersion: 2.0.0
+  layer: GOLD
+  qualityScore: 91
+  sensitivity: INTERNAL
+  freshnessSlaHours: 168
+  metrics:
+  - key: asset_health_index
+    name: Asset health index
+    definition: Composite condition score from inspection, age, and failure history, 0 to 100.
+    grain: asset / quarter
+    unit: index
+    semanticRef: semantic.asset_health_register.asset_health_index
+  - key: replacement_priority_score
+    name: Replacement priority score
+    definition: Ranking of assets for replacement, combining health index with criticality.
+    grain: asset / quarter
+    unit: index
+    semanticRef: semantic.asset_health_register.replacement_priority_score
+- key: energy-trading-positions
+  name: Energy Trading Positions
+  description: Certified hedge, imbalance, and position metrics for the wholesale energy book.
+  domainKey: energy-trading
+  owner: Trading Analytics
+  contractVersion: 1.2.0
+  semanticModelVersion: 1.2.0
+  layer: GOLD
+  qualityScore: 94
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 4
+  metrics:
+  - key: hedge_coverage_ratio
+    name: Hedge coverage ratio
+    definition: Share of forecast demand covered by executed hedges for the delivery period.
+    grain: delivery period / day
+    unit: percent
+    semanticRef: semantic.energy_trading_positions.hedge_coverage_ratio
+  - key: imbalance_cost
+    name: Imbalance cost
+    definition: Cost of settlement imbalance between forecast and metered volume.
+    grain: settlement period / day
+    unit: currency
+    semanticRef: semantic.energy_trading_positions.imbalance_cost
+- key: regulatory-submissions
+  name: Regulatory Submissions
+  description: Timeliness and quality of statutory submissions, with the exceptions raised against each.
+  domainKey: regulatory-reporting
+  owner: Regulatory Reporting
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 96
+  sensitivity: INTERNAL
+  freshnessSlaHours: 72
+  metrics:
+  - key: submission_timeliness_rate
+    name: Submission timeliness rate
+    definition: Share of statutory submissions filed on or before the regulatory deadline.
+    grain: submission / quarter
+    unit: percent
+    semanticRef: semantic.regulatory_submissions.submission_timeliness_rate
+  - key: data_quality_exceptions
+    name: Data quality exceptions
+    definition: Count of validation exceptions raised against a submission before filing.
+    grain: submission / quarter
+    unit: count
+    semanticRef: semantic.regulatory_submissions.data_quality_exceptions
+- key: sustainability-emissions
+  name: Sustainability & Emissions
+  description: Certified emissions, renewable share, and network loss metrics used in public reporting.
+  domainKey: sustainability
+  owner: Sustainability Reporting
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 87
+  sensitivity: INTERNAL
+  freshnessSlaHours: 720
+  metrics:
+  - key: scope_two_emissions
+    name: Scope 2 emissions
+    definition: Market-based emissions from purchased electricity for network operations.
+    grain: reporting entity / month
+    unit: tonnes CO2e
+    semanticRef: semantic.sustainability_emissions.scope_two_emissions
+  - key: renewable_share
+    name: Renewable share
+    definition: Share of supplied energy from certified renewable generation.
+    grain: supply region / month
+    unit: percent
+    semanticRef: semantic.sustainability_emissions.renewable_share
+  - key: network_losses
+    name: Network losses
+    definition: Energy entering the network that is not billed to a customer, as a share of throughput.
+    grain: network area / month
+    unit: percent
+    semanticRef: semantic.sustainability_emissions.network_losses
+- key: outage-communications
+  name: Outage Communications
+  description: How quickly and how well customers were told about interruptions, by channel and event.
+  domainKey: customer-experience
+  owner: Customer Operations
+  contractVersion: 1.3.0
+  semanticModelVersion: 1.3.0
+  layer: GOLD
+  qualityScore: 85
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: notification_latency
+    name: Notification latency
+    definition: Minutes from outage confirmation to the first customer notification going out.
+    grain: outage event
+    unit: minutes
+    semanticRef: semantic.outage_communications.notification_latency
+  - key: proactive_contact_rate
+    name: Proactive contact rate
+    definition: Share of affected customers contacted before they contacted the utility.
+    grain: outage event
+    unit: percent
+    semanticRef: semantic.outage_communications.proactive_contact_rate
+- key: connections-and-capacity
+  name: Connections & Capacity
+  description: New connection lead times and available network headroom by substation and feeder.
+  domainKey: network-operations
+  owner: Network Planning
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 90
+  sensitivity: INTERNAL
+  freshnessSlaHours: 168
+  metrics:
+  - key: connection_lead_time
+    name: Connection lead time
+    definition: Working days from a complete connection application to energisation.
+    grain: connection / month
+    unit: days
+    semanticRef: semantic.connections_and_capacity.connection_lead_time
+  - key: capacity_headroom
+    name: Capacity headroom
+    definition: Spare firm capacity at a substation as a share of its rating.
+    grain: substation / month
+    unit: percent
+    semanticRef: semantic.connections_and_capacity.capacity_headroom
 starterAgents:
 - key: customer-churn-advisor
   name: Customer Churn Advisor

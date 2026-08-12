@@ -13,7 +13,7 @@ adapter, propose-only AI assist, the hardening pass (a performance tripwire at ~
 seventeen ADRs, `DEMO.md`), the multi-player gaps (invitations, workspace settings, white-label
 theming), the Enterprise surface (a read-only API with hashed tokens, optional OIDC sign-in, a
 WCAG 2.1 AA sweep), and a front door that asks for nothing: a public industry agent catalog and
-a one-click workspace with no account. 232 unit tests and 34 Playwright tests against a
+a one-click workspace with no account. 234 unit tests and 34 Playwright tests against a
 production build.
 
 ---
@@ -30,8 +30,9 @@ pnpm dev
 
 Three ways in, none of which asks for an account (`docs/entry-flow.md` covers them in full):
 
-1. **Read the agent catalog** at `/catalog` — every industry pack in full, with each agent's
-   questions and the certified metric that answers each one. No session at all.
+1. **Read the agent catalog** at `/catalog` — every industry pack in full: nine or ten certified
+   data products each, and every agent's questions with the metric that answers each one. No
+   session at all.
 2. **Open a workspace** at `/onboarding` — pick an industry and you are in, with a seeded agent
    part-way through its lifecycle and a guided tour. No email, no password, no card. Add them
    later from settings to keep the workspace and to invite anyone.
@@ -86,7 +87,7 @@ needed — every enum is a `String` column whose domain lives in `src/lib/enums.
 | `pnpm dev` | Development server |
 | `pnpm typecheck` | `tsc --noEmit`, strict |
 | `pnpm lint` | ESLint, including the no-hard-coded-colour rule |
-| `pnpm test` | Vitest against a real SQLite database (232 tests) |
+| `pnpm test` | Vitest against a real SQLite database (234 tests) |
 | `pnpm test:e2e` | Build, then Playwright against the production build (34 tests) |
 | `pnpm build` | Production build |
 | `pnpm seed` | Reference data + showcase tenant and its sandbox twin (idempotent) |

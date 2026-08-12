@@ -62,6 +62,23 @@ invitation grants a role, a role decides who may sign a gate, and an identity
 nobody can contact should not be handing those out. The refusal says exactly
 that and points at the form.
 
+## The catalogue's breadth
+
+Each pack shipped with two or three data products — enough to seed a starter
+agent, not enough to browse. Every pack now carries **nine or ten**, across its
+own declared domains, each with certified metrics at a stated grain: field
+service, asset health, trading positions and emissions for utilities; capital
+and liquidity, payments flows and collections for banking; theatre utilisation,
+diagnostics turnaround and population risk for healthcare, and so on.
+
+`scripts/expand-packs.mjs` authored them and stays in the repository: the next
+person adding a pack wants the shape, and the diff is easier to review against
+the generator than against nine YAML files. A test asserts the floor — at least
+eight products per pack, every product in a domain the pack declares, and metric
+keys unique inside a pack, because the catalogue resolves a question to its
+metric by key and a duplicate would answer the wrong question with the right
+number.
+
 ## What this changed elsewhere
 
 - **`/onboarding/account` is gone.** One screen replaces two.
@@ -74,6 +91,15 @@ that and points at the form.
   without a click. It now redirects an existing session to `/marketplace`
   untouched, and every link to it carries `prefetch={false}`. A browser test
   pins the behaviour.
+- **Tenant context is pinned to `globalThis`.** Next evaluates a module more
+  than once in development while the Prisma client is cached, so the client
+  closed over the *first* `AsyncLocalStorage` and every `runAsOrg` wrote to a
+  second one. Every tenant-scoped query threw `MissingOrgContextError` in `pnpm
+  dev` and passed in production, where there is one registry — which is why the
+  browser suite was green while the app was unusable locally. That is what broke
+  "Explore the live demo", "Sign in" and "Open a workspace": all three land on a
+  page that queries. A test reproduces it with `vi.resetModules()` and fails
+  without the fix.
 - **Badge tints became solid tokens.** `bg-success/10` blends with whatever is
   behind it, so the same badge cleared AA on white and failed it on `--panel`
   and `--band`. `--success-tint`, `--brand-tint`, `--danger-tint` and

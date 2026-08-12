@@ -96,15 +96,23 @@ test("4:00 — the money moment: publish a breaking version, watch it go stale",
   await expect(owner.getByText("This is the live demo workspace")).toHaveCount(0);
 
   await owner.goto("/data-products");
-  await owner.getByText("Publish a new contract version").first().click();
-  await owner.fill("input[name='contractVersion']", "3.0.0");
-  await owner.fill(
-    "textarea[name='changeSummary']",
-    "Removed the legacy premise identifier from the customer grain.",
-  );
-  await owner.getByRole("button", { name: "Publish version" }).click();
 
-  const status = owner.locator("[role=status]").first();
+  // Target Customer 360 by name, not by position: packs ship nine or ten
+  // products now, and the agent under test stands on this one. Each product is
+  // a card whose heading links to it.
+  const customer360 = owner
+    .locator("div")
+    .filter({ has: owner.getByRole("link", { name: "Customer 360", exact: true }) })
+    .filter({ has: owner.getByText("Publish a new contract version") })
+    .last();
+  await customer360.getByText("Publish a new contract version").click();
+  await customer360.locator("input[name='contractVersion']").fill("3.0.0");
+  await customer360
+    .locator("textarea[name='changeSummary']")
+    .fill("Removed the legacy premise identifier from the customer grain.");
+  await customer360.getByRole("button", { name: "Publish version" }).click();
+
+  const status = customer360.locator("[role=status]").first();
   await expect(status).toBeVisible();
   await expect(status).toContainText("Breaking change recorded");
   await expect(status).toContainText("re-certification task");

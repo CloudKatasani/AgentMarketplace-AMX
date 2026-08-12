@@ -111,6 +111,174 @@ dataProducts:
     grain: service / quarter
     unit: percentage points
     semanticRef: semantic.outcome_signals.outcome_equity_gap
+- key: benefit-payments
+  name: Benefit Payments
+  description: Payment accuracy, timeliness, and recovery metrics across benefit schemes.
+  domainKey: payments-and-benefits
+  owner: Payments Assurance
+  contractVersion: 2.1.0
+  semanticModelVersion: 2.1.0
+  layer: GOLD
+  qualityScore: 94
+  sensitivity: RESTRICTED
+  freshnessSlaHours: 24
+  metrics:
+  - key: payment_accuracy_rate
+    name: Payment accuracy rate
+    definition: Share of payments made at the correct entitlement, by scheme.
+    grain: scheme / month
+    unit: percent
+    semanticRef: semantic.benefit_payments.payment_accuracy_rate
+  - key: overpayment_recovery_rate
+    name: Overpayment recovery rate
+    definition: Share of identified overpayment value recovered within twelve months.
+    grain: scheme / quarter
+    unit: percent
+    semanticRef: semantic.benefit_payments.overpayment_recovery_rate
+- key: contact-and-channels
+  name: Contact & Channels
+  description: Demand, wait, and resolution metrics across phone, digital, and face-to-face contact.
+  domainKey: service-delivery
+  owner: Service Analytics
+  contractVersion: 1.3.0
+  semanticModelVersion: 1.3.0
+  layer: GOLD
+  qualityScore: 88
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: first_contact_resolution
+    name: First contact resolution
+    definition: Share of enquiries resolved without a follow-up contact.
+    grain: channel / week
+    unit: percent
+    semanticRef: semantic.contact_and_channels.first_contact_resolution
+  - key: average_wait_time
+    name: Average wait time
+    definition: Mean minutes a citizen waits before being served, by channel.
+    grain: channel / week
+    unit: minutes
+    semanticRef: semantic.contact_and_channels.average_wait_time
+- key: workforce-capacity
+  name: Workforce Capacity
+  description: Caseload, vacancy, and training metrics for frontline and casework teams.
+  domainKey: workforce
+  owner: Workforce Planning
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 87
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: caseload_per_officer
+    name: Caseload per officer
+    definition: Open cases per full-time equivalent caseworker.
+    grain: team / month
+    unit: count
+    semanticRef: semantic.workforce_capacity.caseload_per_officer
+  - key: staff_vacancy_rate
+    name: Staff vacancy rate
+    definition: Funded posts unfilled at period end, by service area.
+    grain: service / month
+    unit: percent
+    semanticRef: semantic.workforce_capacity.staff_vacancy_rate
+- key: policy-impact
+  name: Policy Impact
+  description: Programme outcome and cost-per-outcome metrics used in policy evaluation.
+  domainKey: policy-analysis
+  owner: Policy Analysis
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 83
+  sensitivity: INTERNAL
+  freshnessSlaHours: 720
+  metrics:
+  - key: programme_outcome_rate
+    name: Programme outcome rate
+    definition: Share of participants achieving the stated programme outcome within the window.
+    grain: programme / quarter
+    unit: percent
+    semanticRef: semantic.policy_impact.programme_outcome_rate
+  - key: cost_per_outcome
+    name: Cost per outcome
+    definition: Total programme cost over outcomes achieved.
+    grain: programme / quarter
+    unit: currency
+    semanticRef: semantic.policy_impact.cost_per_outcome
+- key: appeals-and-complaints
+  name: Appeals & Complaints
+  description: Appeal, review, and complaint metrics, with the decisions they overturned.
+  domainKey: casework
+  owner: Casework Quality
+  contractVersion: 1.2.0
+  semanticModelVersion: 1.2.0
+  layer: GOLD
+  qualityScore: 90
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: appeal_overturn_rate
+    name: Appeal overturn rate
+    definition: Share of appealed decisions overturned at first-tier review.
+    grain: scheme / quarter
+    unit: percent
+    semanticRef: semantic.appeals_and_complaints.appeal_overturn_rate
+  - key: complaint_response_days
+    name: Complaint response days
+    definition: Working days from complaint receipt to substantive response.
+    grain: service / month
+    unit: days
+    semanticRef: semantic.appeals_and_complaints.complaint_response_days
+- key: digital-services
+  name: Digital Services
+  description: Completion, assisted-digital, and accessibility metrics for online services.
+  domainKey: service-delivery
+  owner: Digital Service Analytics
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 86
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: digital_completion_rate
+    name: Digital completion rate
+    definition: Share of started online transactions completed without assistance.
+    grain: service / week
+    unit: percent
+    semanticRef: semantic.digital_services.digital_completion_rate
+  - key: assisted_digital_share
+    name: Assisted digital share
+    definition: Share of transactions completed with staff assistance.
+    grain: service / week
+    unit: percent
+    semanticRef: semantic.digital_services.assisted_digital_share
+- key: procurement-and-spend
+  name: Procurement & Spend
+  description: Supplier spend, concentration, and contract compliance metrics.
+  domainKey: policy-analysis
+  owner: Commercial Analytics
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 85
+  sensitivity: INTERNAL
+  freshnessSlaHours: 168
+  metrics:
+  - key: supplier_concentration
+    name: Supplier concentration
+    definition: Share of category spend with the three largest suppliers.
+    grain: category / quarter
+    unit: percent
+    semanticRef: semantic.procurement_and_spend.supplier_concentration
+  - key: contract_compliance_rate
+    name: Contract compliance rate
+    definition: Share of spend placed against a compliant contract route.
+    grain: category / quarter
+    unit: percent
+    semanticRef: semantic.procurement_and_spend.contract_compliance_rate
 starterAgents:
 - key: caseload-advisor
   name: Caseload Advisor

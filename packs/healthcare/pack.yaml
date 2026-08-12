@@ -111,6 +111,174 @@ dataProducts:
     grain: specialty / month
     unit: percent
     semanticRef: semantic.quality_signals.readmission_rate
+- key: revenue-cycle-360
+  name: Revenue Cycle 360
+  description: Certified billing, denial, and collection metrics from encounter through payment.
+  domainKey: revenue-cycle
+  owner: Revenue Cycle Analytics
+  contractVersion: 2.2.0
+  semanticModelVersion: 2.2.0
+  layer: GOLD
+  qualityScore: 92
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: denial_rate
+    name: Denial rate
+    definition: Share of submitted claims denied on first pass, by payer and service line.
+    grain: payer / month
+    unit: percent
+    semanticRef: semantic.revenue_cycle_360.denial_rate
+  - key: days_in_ar
+    name: Days in accounts receivable
+    definition: Average days from claim submission to cash posting.
+    grain: service line / month
+    unit: days
+    semanticRef: semantic.revenue_cycle_360.days_in_ar
+- key: workforce-rostering
+  name: Workforce & Rostering
+  description: Staffing, agency use, and vacancy metrics across clinical rosters.
+  domainKey: workforce
+  owner: Workforce Analytics
+  contractVersion: 1.3.0
+  semanticModelVersion: 1.3.0
+  layer: GOLD
+  qualityScore: 87
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: agency_hours_share
+    name: Agency hours share
+    definition: Share of rostered clinical hours filled by agency staff.
+    grain: ward / week
+    unit: percent
+    semanticRef: semantic.workforce_rostering.agency_hours_share
+  - key: vacancy_rate
+    name: Vacancy rate
+    definition: Funded establishment posts unfilled at period end.
+    grain: service / month
+    unit: percent
+    semanticRef: semantic.workforce_rostering.vacancy_rate
+- key: population-risk
+  name: Population Risk
+  description: Risk stratification and avoidable-admission metrics for registered populations.
+  domainKey: population-health
+  owner: Population Health Analytics
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 85
+  sensitivity: RESTRICTED
+  freshnessSlaHours: 168
+  metrics:
+  - key: risk_stratification_score
+    name: Risk stratification score
+    definition: Modelled twelve-month risk of unplanned admission for a registered patient cohort.
+    grain: cohort / month
+    unit: index
+    semanticRef: semantic.population_risk.risk_stratification_score
+  - key: avoidable_admission_rate
+    name: Avoidable admission rate
+    definition: Admissions for ambulatory care sensitive conditions per thousand population.
+    grain: cohort / month
+    unit: rate
+    semanticRef: semantic.population_risk.avoidable_admission_rate
+- key: theatre-utilisation
+  name: Theatre Utilisation
+  description: Session utilisation, late starts, and cancellations across operating theatres.
+  domainKey: patient-flow
+  owner: Elective Care Analytics
+  contractVersion: 1.2.0
+  semanticModelVersion: 1.2.0
+  layer: GOLD
+  qualityScore: 90
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: theatre_utilisation
+    name: Theatre utilisation
+    definition: Operating minutes used as a share of scheduled session minutes.
+    grain: theatre / week
+    unit: percent
+    semanticRef: semantic.theatre_utilisation.theatre_utilisation
+  - key: cancellation_rate
+    name: Cancellation rate
+    definition: Share of scheduled procedures cancelled on the day for non-clinical reasons.
+    grain: specialty / month
+    unit: percent
+    semanticRef: semantic.theatre_utilisation.cancellation_rate
+- key: diagnostics-turnaround
+  name: Diagnostics Turnaround
+  description: Test turnaround and backlog metrics across imaging and pathology.
+  domainKey: patient-flow
+  owner: Diagnostics Analytics
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 89
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: test_turnaround_time
+    name: Test turnaround time
+    definition: Median hours from request to reported result, by modality.
+    grain: modality / week
+    unit: hours
+    semanticRef: semantic.diagnostics_turnaround.test_turnaround_time
+  - key: backlog_over_six_weeks
+    name: Backlog over six weeks
+    definition: Patients waiting more than six weeks for a diagnostic test.
+    grain: modality / week
+    unit: count
+    semanticRef: semantic.diagnostics_turnaround.backlog_over_six_weeks
+- key: patient-experience
+  name: Patient Experience
+  description: Survey, complaint, and response metrics describing how care felt to receive.
+  domainKey: quality-and-safety
+  owner: Patient Experience
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 84
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: experience_score
+    name: Experience score
+    definition: Mean patient-reported experience score for a service in the period.
+    grain: service / month
+    unit: index
+    semanticRef: semantic.patient_experience.experience_score
+  - key: complaint_response_time
+    name: Complaint response time
+    definition: Working days from complaint receipt to substantive response.
+    grain: service / month
+    unit: days
+    semanticRef: semantic.patient_experience.complaint_response_time
+- key: medicines-and-supply
+  name: Medicines & Supply
+  description: Formulary adherence and availability metrics for medicines and clinical consumables.
+  domainKey: quality-and-safety
+  owner: Pharmacy Analytics
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 86
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: formulary_adherence
+    name: Formulary adherence
+    definition: Share of prescriptions issued within the agreed formulary.
+    grain: specialty / month
+    unit: percent
+    semanticRef: semantic.medicines_and_supply.formulary_adherence
+  - key: stockout_rate
+    name: Stockout rate
+    definition: Share of stock lines unavailable at the point of dispensing.
+    grain: site / week
+    unit: percent
+    semanticRef: semantic.medicines_and_supply.stockout_rate
 starterAgents:
 - key: pathway-wait-monitor
   name: Pathway Wait Monitor

@@ -10,6 +10,7 @@ import {
   isGuestEmail,
 } from "@/lib/organizations/guest";
 import { catalogIndustries, catalogIndustry } from "@/lib/packs/catalog";
+import { loadPack } from "@/lib/packs/load";
 
 import { raw } from "./helpers";
 
@@ -189,6 +190,33 @@ describe("the public catalogue", () => {
     // Bindings resolve to a real product with its contract version.
     expect(advisor.bindings.length).toBeGreaterThan(0);
     expect(advisor.bindings[0].contractVersion).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it("carries enough products per industry to be worth browsing", () => {
+    // A catalogue with two products per industry is a screenshot, not a
+    // catalogue. Each pack ships at least eight, across its own declared
+    // domains, with metric keys unique inside the pack — the catalogue resolves
+    // a question to its metric by key, so a duplicate would answer the wrong
+    // question with the right number.
+    for (const industry of catalogIndustries()) {
+      const view = catalogIndustry(industry.key)!;
+      const loaded = loadPack(industry.key);
+      if (!loaded.ok) throw new Error(`${industry.key} failed to load`);
+
+      expect(view.dataProducts.length, `${industry.key} data products`).toBeGreaterThanOrEqual(8);
+
+      const domains = new Set(view.domains.map((domain) => domain.key));
+      const metricKeys = new Set<string>();
+
+      for (const product of loaded.pack.dataProducts) {
+        expect(domains.has(product.domainKey), `${product.key} domain`).toBe(true);
+        expect(product.metrics.length, `${product.key} metrics`).toBeGreaterThan(0);
+        for (const metric of product.metrics) {
+          expect(metricKeys.has(metric.key), `${industry.key}: duplicate ${metric.key}`).toBe(false);
+          metricKeys.add(metric.key);
+        }
+      }
+    }
   });
 
   it("never exposes a product an agent could not legally bind to", () => {

@@ -112,6 +112,180 @@ dataProducts:
     grain: line / shift
     unit: percent
     semanticRef: semantic.quality_signals.first_pass_yield
+- key: maintenance-reliability
+  name: Maintenance & Reliability
+  description: Planned versus reactive maintenance, and reliability metrics by asset class.
+  domainKey: maintenance
+  owner: Reliability Engineering
+  contractVersion: 1.4.0
+  semanticModelVersion: 1.4.0
+  layer: GOLD
+  qualityScore: 90
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: mean_time_between_failures
+    name: Mean time between failures
+    definition: Operating hours between unplanned stoppages for an asset class.
+    grain: asset class / month
+    unit: hours
+    semanticRef: semantic.maintenance_reliability.mean_time_between_failures
+  - key: planned_maintenance_ratio
+    name: Planned maintenance ratio
+    definition: Planned maintenance hours as a share of total maintenance hours.
+    grain: plant / month
+    unit: percent
+    semanticRef: semantic.maintenance_reliability.planned_maintenance_ratio
+- key: supply-chain-flow
+  name: Supply Chain Flow
+  description: "Inbound and outbound flow metrics: delivery reliability, inventory, and lead time."
+  domainKey: supply-chain
+  owner: Supply Chain Analytics
+  contractVersion: 2.0.0
+  semanticModelVersion: 2.0.0
+  layer: GOLD
+  qualityScore: 92
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: otif_rate
+    name: On time in full
+    definition: Orders delivered complete and on the promised date, as a share of orders.
+    grain: customer / month
+    unit: percent
+    semanticRef: semantic.supply_chain_flow.otif_rate
+  - key: inventory_turns
+    name: Inventory turns
+    definition: Cost of goods sold over average inventory value for the period.
+    grain: site / quarter
+    unit: ratio
+    semanticRef: semantic.supply_chain_flow.inventory_turns
+  - key: inbound_lead_time
+    name: Inbound lead time
+    definition: Days from purchase order to goods received, by supplier.
+    grain: supplier / month
+    unit: days
+    semanticRef: semantic.supply_chain_flow.inbound_lead_time
+- key: safety-incidents
+  name: Safety Incidents
+  description: Injury, near-miss, and corrective-action metrics across sites.
+  domainKey: safety
+  owner: EHS Analytics
+  contractVersion: 1.2.0
+  semanticModelVersion: 1.2.0
+  layer: GOLD
+  qualityScore: 94
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: recordable_incident_rate
+    name: Recordable incident rate
+    definition: Recordable injuries per two hundred thousand hours worked.
+    grain: site / month
+    unit: rate
+    semanticRef: semantic.safety_incidents.recordable_incident_rate
+  - key: near_miss_rate
+    name: Near miss rate
+    definition: Reported near misses per hundred employees, a leading indicator.
+    grain: site / month
+    unit: rate
+    semanticRef: semantic.safety_incidents.near_miss_rate
+- key: supplier-quality
+  name: Supplier Quality
+  description: Incoming quality and delivery conformance by supplier and part.
+  domainKey: quality
+  owner: Supplier Quality
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 89
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: ppm_defect_rate
+    name: PPM defect rate
+    definition: Defective parts per million received, by supplier.
+    grain: supplier / month
+    unit: rate
+    semanticRef: semantic.supplier_quality.ppm_defect_rate
+  - key: supplier_on_time_delivery
+    name: Supplier on-time delivery
+    definition: Share of supplier deliveries received within the agreed window.
+    grain: supplier / month
+    unit: percent
+    semanticRef: semantic.supplier_quality.supplier_on_time_delivery
+- key: capacity-and-scheduling
+  name: Capacity & Scheduling
+  description: Schedule adherence, changeover, and utilisation metrics by line.
+  domainKey: production
+  owner: Production Planning
+  contractVersion: 1.3.0
+  semanticModelVersion: 1.3.0
+  layer: GOLD
+  qualityScore: 88
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: schedule_adherence
+    name: Schedule adherence
+    definition: Share of scheduled orders completed in the planned sequence and period.
+    grain: line / week
+    unit: percent
+    semanticRef: semantic.capacity_and_scheduling.schedule_adherence
+  - key: changeover_time
+    name: Changeover time
+    definition: Median minutes lost to changeover between product runs.
+    grain: line / week
+    unit: minutes
+    semanticRef: semantic.capacity_and_scheduling.changeover_time
+- key: warranty-and-returns
+  name: Warranty & Returns
+  description: Field failure, warranty claim, and cost metrics traced back to build data.
+  domainKey: quality
+  owner: Quality Engineering
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 86
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: warranty_claim_rate
+    name: Warranty claim rate
+    definition: Claims per thousand units shipped, by product and build period.
+    grain: product / month
+    unit: rate
+    semanticRef: semantic.warranty_and_returns.warranty_claim_rate
+  - key: cost_per_claim
+    name: Cost per claim
+    definition: Average settled cost of a warranty claim, including logistics.
+    grain: product / quarter
+    unit: currency
+    semanticRef: semantic.warranty_and_returns.cost_per_claim
+- key: energy-and-utilities-use
+  name: Energy & Utilities Use
+  description: Energy, water, and waste intensity per unit produced, by site and line.
+  domainKey: production
+  owner: Site Sustainability
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 85
+  sensitivity: INTERNAL
+  freshnessSlaHours: 168
+  metrics:
+  - key: energy_per_unit
+    name: Energy per unit
+    definition: Energy consumed per unit of saleable output.
+    grain: line / month
+    unit: kWh
+    semanticRef: semantic.energy_and_utilities_use.energy_per_unit
+  - key: waste_to_landfill
+    name: Waste to landfill
+    definition: Production waste sent to landfill as a share of total waste.
+    grain: site / month
+    unit: percent
+    semanticRef: semantic.energy_and_utilities_use.waste_to_landfill
 starterAgents:
 - key: line-effectiveness-advisor
   name: Line Effectiveness Advisor

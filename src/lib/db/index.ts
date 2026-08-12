@@ -10,11 +10,13 @@ const globalForPrisma = globalThis as unknown as { amxPrisma?: AmxPrismaClient }
  * The global cache exists for one reason: Next's dev server re-evaluates
  * modules on every edit, and a new PrismaClient per edit exhausts connections.
  *
- * It is scoped to development only, deliberately. Under a test runner each file
- * gets a fresh module registry but shares `globalThis`, so a cached client
- * would keep the *first* file's AsyncLocalStorage — and every later file's
- * `runAsOrg` would write to a store the client cannot see. Silent cross-file
- * context loss is a worse bug than an extra connection.
+ * It is scoped to development only, deliberately: under a test runner an extra
+ * connection per file is cheaper than reasoning about a shared one.
+ *
+ * The context store itself is pinned to `globalThis` in `tenancy.ts`, which is
+ * what makes caching the client safe at all. Without that, a cached client
+ * keeps the module instance's *first* AsyncLocalStorage while a re-evaluated
+ * module writes to a second one — and every tenant-scoped query throws.
  */
 export const db: AmxPrismaClient = globalForPrisma.amxPrisma ?? createTenantAwareClient();
 

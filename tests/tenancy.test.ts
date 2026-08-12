@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { db } from "@/lib/db";
 import { isClassified } from "@/lib/db/model-classification";
@@ -153,5 +153,43 @@ describe("append-only models", () => {
         db.approval.updateMany({ data: { decision: "APPROVE" } }),
       ),
     ).rejects.toBeInstanceOf(AppendOnlyViolationError);
+  });
+});
+
+/**
+ * The bug that only showed up in `pnpm dev`.
+ *
+ * Next evaluates a module more than once — a route compiled in a different pass
+ * gets its own copy of `tenancy.ts` — while the Prisma client is cached on
+ * `globalThis` so edits do not exhaust connections. If the AsyncLocalStorage
+ * were per module copy, the cached client would close over the first one, a
+ * later `runAsOrg` would write to the second, and every tenant-scoped query
+ * would throw `MissingOrgContextError` in development while passing in
+ * production, where there is only one registry.
+ *
+ * `vi.resetModules()` reproduces exactly that: a fresh registry, a fresh copy of
+ * the module, the same process.
+ */
+describe("context survives a second module registry", () => {
+  it("scopes a client from one registry with a scope entered from another", async () => {
+    const org = await makeOrg({ seedStarter: false });
+
+    // The client under test comes from the registry loaded at the top of this
+    // file; the scope comes from a freshly-evaluated copy of the same module.
+    vi.resetModules();
+    const reloaded = await import("@/lib/db/tenancy");
+
+    const agents = await reloaded.runAsOrg(org.organizationId, () =>
+      db.agent.findMany({ select: { id: true } }),
+    );
+    expect(Array.isArray(agents)).toBe(true);
+
+    // And the reverse direction: a client from the new registry, a scope from
+    // this one.
+    const freshDb = await import("@/lib/db");
+    const alsoAgents = await inOrg(org.organizationId, () =>
+      freshDb.db.agent.findMany({ select: { id: true } }),
+    );
+    expect(Array.isArray(alsoAgents)).toBe(true);
   });
 });

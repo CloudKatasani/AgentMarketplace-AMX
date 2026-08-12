@@ -115,6 +115,174 @@ dataProducts:
     grain: cost line / period
     unit: currency
     semanticRef: semantic.plan_actuals.budget_variance
+- key: customer-360
+  name: Customer 360
+  description: Conformed customer view with certified activity, retention, and value metrics.
+  domainKey: customer
+  owner: Customer Analytics
+  contractVersion: 1.2.0
+  semanticModelVersion: 1.2.0
+  layer: GOLD
+  qualityScore: 90
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: active_customers
+    name: Active customers
+    definition: Customers with a qualifying interaction in the trailing ninety days.
+    grain: segment / month
+    unit: count
+    semanticRef: semantic.customer_360.active_customers
+  - key: customer_churn_rate
+    name: Customer churn rate
+    definition: Share of active customers who lapse in the period.
+    grain: segment / month
+    unit: percent
+    semanticRef: semantic.customer_360.customer_churn_rate
+- key: workforce-capacity
+  name: Workforce Capacity
+  description: Utilisation, attrition, and capacity metrics for delivery teams.
+  domainKey: workforce
+  owner: People Analytics
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 87
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: utilisation_rate
+    name: Utilisation rate
+    definition: Billable or productive hours as a share of available hours.
+    grain: team / month
+    unit: percent
+    semanticRef: semantic.workforce_capacity.utilisation_rate
+  - key: attrition_rate
+    name: Attrition rate
+    definition: Leavers as a share of average headcount, annualised.
+    grain: team / quarter
+    unit: percent
+    semanticRef: semantic.workforce_capacity.attrition_rate
+- key: service-quality
+  name: Service Quality
+  description: Service level, incident, and resolution metrics across operational services.
+  domainKey: operations
+  owner: Service Management
+  contractVersion: 1.3.0
+  semanticModelVersion: 1.3.0
+  layer: GOLD
+  qualityScore: 89
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: sla_attainment
+    name: SLA attainment
+    definition: Share of service levels met in the period.
+    grain: service / month
+    unit: percent
+    semanticRef: semantic.service_quality.sla_attainment
+  - key: incident_rate
+    name: Incident rate
+    definition: Incidents raised per thousand transactions.
+    grain: service / month
+    unit: rate
+    semanticRef: semantic.service_quality.incident_rate
+- key: cost-to-serve
+  name: Cost to Serve
+  description: Unit economics by product, channel, and segment, reconciled to the ledger.
+  domainKey: finance
+  owner: Finance Analytics
+  contractVersion: 1.2.0
+  semanticModelVersion: 1.2.0
+  layer: GOLD
+  qualityScore: 91
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 168
+  metrics:
+  - key: cost_per_transaction
+    name: Cost per transaction
+    definition: Fully loaded cost per completed transaction, by channel.
+    grain: channel / month
+    unit: currency
+    semanticRef: semantic.cost_to_serve.cost_per_transaction
+  - key: contribution_margin
+    name: Contribution margin
+    definition: Revenue less variable cost, as a share of revenue.
+    grain: segment / month
+    unit: percent
+    semanticRef: semantic.cost_to_serve.contribution_margin
+- key: demand-and-pipeline
+  name: Demand & Pipeline
+  description: Pipeline, conversion, and forecast accuracy metrics for commercial planning.
+  domainKey: customer
+  owner: Commercial Analytics
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 85
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: pipeline_conversion
+    name: Pipeline conversion
+    definition: Share of qualified pipeline converting to closed business.
+    grain: segment / quarter
+    unit: percent
+    semanticRef: semantic.demand_and_pipeline.pipeline_conversion
+  - key: forecast_accuracy
+    name: Forecast accuracy
+    definition: Absolute error between forecast and actual, as a share of actual.
+    grain: segment / month
+    unit: percent
+    semanticRef: semantic.demand_and_pipeline.forecast_accuracy
+- key: supplier-performance
+  name: Supplier Performance
+  description: Delivery, quality, and dispute metrics across the supplier base.
+  domainKey: operations
+  owner: Procurement Analytics
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 86
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: supplier_on_time_rate
+    name: Supplier on-time rate
+    definition: Deliveries received within the agreed window, as a share of deliveries.
+    grain: supplier / month
+    unit: percent
+    semanticRef: semantic.supplier_performance.supplier_on_time_rate
+  - key: dispute_rate
+    name: Dispute rate
+    definition: Invoices disputed as a share of invoices received.
+    grain: supplier / month
+    unit: percent
+    semanticRef: semantic.supplier_performance.dispute_rate
+- key: compliance-register
+  name: Compliance Register
+  description: Control testing and remediation metrics across the compliance framework.
+  domainKey: finance
+  owner: Risk & Compliance
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 92
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 168
+  metrics:
+  - key: control_pass_rate
+    name: Control pass rate
+    definition: Share of tested controls passing without exception.
+    grain: framework / quarter
+    unit: percent
+    semanticRef: semantic.compliance_register.control_pass_rate
+  - key: overdue_actions
+    name: Overdue actions
+    definition: Remediation actions past their committed date.
+    grain: framework / month
+    unit: count
+    semanticRef: semantic.compliance_register.overdue_actions
 starterAgents:
 - key: exception-triage-advisor
   name: Exception Triage Advisor

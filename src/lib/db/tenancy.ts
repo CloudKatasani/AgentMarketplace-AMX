@@ -30,7 +30,29 @@ export type OrgContext = {
   isSystem?: boolean;
 };
 
-const storage = new AsyncLocalStorage<OrgContext>();
+/**
+ * One store per process, not one per module instance.
+ *
+ * Next's dev server evaluates a module more than once — a route rendered in a
+ * different compilation gets its own copy of this file — while the Prisma
+ * client is cached on `globalThis` so edits do not exhaust connections. Those
+ * two facts together are a trap: the cached client closes over the *first*
+ * `AsyncLocalStorage`, a later `runAsOrg` writes to the *second*, and every
+ * tenant-scoped query throws `MissingOrgContextError` in development while
+ * passing in production, where there is only one registry.
+ *
+ * Pinning the store to `globalThis` makes the context one thing per process, so
+ * whichever copy of this module a caller reached, the client can see what it
+ * set. (This is also why the same class of bug bit the test runner, which gives
+ * every file its own registry.)
+ */
+const globalForTenancy = globalThis as unknown as {
+  amxOrgStorage?: AsyncLocalStorage<OrgContext>;
+};
+
+const storage: AsyncLocalStorage<OrgContext> =
+  globalForTenancy.amxOrgStorage ?? new AsyncLocalStorage<OrgContext>();
+globalForTenancy.amxOrgStorage = storage;
 
 export class MissingOrgContextError extends Error {
   constructor(model: string, operation: string) {

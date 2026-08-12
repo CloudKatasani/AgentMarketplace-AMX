@@ -111,6 +111,174 @@ dataProducts:
     grain: cell / day
     unit: percent
     semanticRef: semantic.network_performance.cell_congestion_rate
+- key: service-assurance-360
+  name: Service Assurance 360
+  description: Fault, restoration, and repeat-issue metrics across consumer and enterprise services.
+  domainKey: service-assurance
+  owner: Assurance Analytics
+  contractVersion: 1.5.0
+  semanticModelVersion: 1.5.0
+  layer: GOLD
+  qualityScore: 91
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: mean_time_to_restore
+    name: Mean time to restore
+    definition: Hours from fault raised to service restored, by fault class.
+    grain: fault class / week
+    unit: hours
+    semanticRef: semantic.service_assurance_360.mean_time_to_restore
+  - key: repeat_fault_rate
+    name: Repeat fault rate
+    definition: Share of services faulting again within thirty days of restoration.
+    grain: region / month
+    unit: percent
+    semanticRef: semantic.service_assurance_360.repeat_fault_rate
+- key: broadband-experience
+  name: Broadband Experience
+  description: Throughput, latency, and congestion metrics for fixed broadband services.
+  domainKey: fixed-broadband
+  owner: Network Experience
+  contractVersion: 2.0.0
+  semanticModelVersion: 2.0.0
+  layer: GOLD
+  qualityScore: 93
+  sensitivity: INTERNAL
+  freshnessSlaHours: 6
+  metrics:
+  - key: average_throughput
+    name: Average throughput
+    definition: Median downstream throughput during peak hours.
+    grain: exchange / day
+    unit: Mbps
+    semanticRef: semantic.broadband_experience.average_throughput
+  - key: congestion_hours
+    name: Congestion hours
+    definition: Hours per week a node exceeds the congestion threshold.
+    grain: node / week
+    unit: hours
+    semanticRef: semantic.broadband_experience.congestion_hours
+- key: enterprise-contracts
+  name: Enterprise Contracts
+  description: SLA attainment, credit exposure, and renewal metrics for enterprise accounts.
+  domainKey: enterprise-accounts
+  owner: Enterprise Analytics
+  contractVersion: 1.2.0
+  semanticModelVersion: 1.2.0
+  layer: GOLD
+  qualityScore: 90
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: sla_attainment
+    name: SLA attainment
+    definition: Share of contracted service levels met in the period.
+    grain: account / month
+    unit: percent
+    semanticRef: semantic.enterprise_contracts.sla_attainment
+  - key: contract_renewal_rate
+    name: Contract renewal rate
+    definition: Share of contract value renewed at expiry.
+    grain: segment / quarter
+    unit: percent
+    semanticRef: semantic.enterprise_contracts.contract_renewal_rate
+- key: churn-and-retention
+  name: Churn & Retention
+  description: Disconnection, save, and win-back metrics across consumer subscriptions.
+  domainKey: consumer-mobile
+  owner: Retention Analytics
+  contractVersion: 1.6.0
+  semanticModelVersion: 1.6.0
+  layer: GOLD
+  qualityScore: 92
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: monthly_churn_rate
+    name: Monthly churn rate
+    definition: Disconnections as a share of the opening subscriber base.
+    grain: segment / month
+    unit: percent
+    semanticRef: semantic.churn_and_retention.monthly_churn_rate
+  - key: save_rate
+    name: Save rate
+    definition: Share of cancellation attempts retained after a save offer.
+    grain: segment / month
+    unit: percent
+    semanticRef: semantic.churn_and_retention.save_rate
+- key: device-and-upgrade
+  name: Device & Upgrade
+  description: Upgrade behaviour, device margin, and trade-in metrics.
+  domainKey: consumer-mobile
+  owner: Device Analytics
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 87
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: upgrade_take_rate
+    name: Upgrade take rate
+    definition: Share of eligible subscribers upgrading within the window.
+    grain: segment / month
+    unit: percent
+    semanticRef: semantic.device_and_upgrade.upgrade_take_rate
+  - key: device_margin
+    name: Device margin
+    definition: Margin per device sold after subsidy and trade-in.
+    grain: device / month
+    unit: currency
+    semanticRef: semantic.device_and_upgrade.device_margin
+- key: field-installations
+  name: Field Installations
+  description: Provisioning, appointment, and first-time-right metrics for installs.
+  domainKey: service-assurance
+  owner: Field Operations
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 88
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: install_first_time_right
+    name: Install first time right
+    definition: Installs completed on the first visit with service confirmed working.
+    grain: region / week
+    unit: percent
+    semanticRef: semantic.field_installations.install_first_time_right
+  - key: provisioning_lead_time
+    name: Provisioning lead time
+    definition: Working days from order to service activation.
+    grain: product / month
+    unit: days
+    semanticRef: semantic.field_installations.provisioning_lead_time
+- key: spectrum-and-capacity
+  name: Spectrum & Capacity
+  description: Cell utilisation and capacity headroom metrics used in network planning.
+  domainKey: network-performance
+  owner: Network Planning
+  contractVersion: 1.3.0
+  semanticModelVersion: 1.3.0
+  layer: GOLD
+  qualityScore: 94
+  sensitivity: INTERNAL
+  freshnessSlaHours: 12
+  metrics:
+  - key: cell_utilisation
+    name: Cell utilisation
+    definition: Peak-hour resource block utilisation for a cell.
+    grain: cell / day
+    unit: percent
+    semanticRef: semantic.spectrum_and_capacity.cell_utilisation
+  - key: capacity_headroom
+    name: Capacity headroom
+    definition: Forecast months until a cell breaches its capacity threshold.
+    grain: cell / month
+    unit: months
+    semanticRef: semantic.spectrum_and_capacity.capacity_headroom
 starterAgents:
 - key: retention-experience-advisor
   name: Retention Experience Advisor

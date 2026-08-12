@@ -111,6 +111,174 @@ dataProducts:
     grain: segment / quarter
     unit: percent
     semanticRef: semantic.underwriting_portfolio.loss_ratio
+- key: fraud-signals
+  name: Fraud Signals
+  description: Referral, investigation, and recovery metrics from the special investigations unit.
+  domainKey: fraud
+  owner: Counter-Fraud Analytics
+  contractVersion: 1.3.0
+  semanticModelVersion: 1.3.0
+  layer: GOLD
+  qualityScore: 90
+  sensitivity: RESTRICTED
+  freshnessSlaHours: 24
+  metrics:
+  - key: referral_rate
+    name: Referral rate
+    definition: Share of claims referred for investigation, by product and channel.
+    grain: product / month
+    unit: percent
+    semanticRef: semantic.fraud_signals.referral_rate
+  - key: fraud_save_ratio
+    name: Fraud save ratio
+    definition: Value of prevented or recovered indemnity over investigation cost.
+    grain: product / quarter
+    unit: ratio
+    semanticRef: semantic.fraud_signals.fraud_save_ratio
+- key: reserving-and-actuarial
+  name: Reserving & Actuarial
+  description: Certified reserve, development, and ultimate-loss metrics used in actuarial review.
+  domainKey: actuarial
+  owner: Actuarial Reporting
+  contractVersion: 2.0.0
+  semanticModelVersion: 2.0.0
+  layer: GOLD
+  qualityScore: 95
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 168
+  metrics:
+  - key: ibnr_reserve
+    name: IBNR reserve
+    definition: Reserve held for claims incurred but not yet reported, by class.
+    grain: class / quarter
+    unit: currency
+    semanticRef: semantic.reserving_and_actuarial.ibnr_reserve
+  - key: loss_development_factor
+    name: Loss development factor
+    definition: Ratio of ultimate to reported losses at a given development age.
+    grain: class / quarter
+    unit: ratio
+    semanticRef: semantic.reserving_and_actuarial.loss_development_factor
+- key: distribution-performance
+  name: Distribution Performance
+  description: Broker, agency, and direct channel metrics for new business and retention.
+  domainKey: distribution
+  owner: Distribution Analytics
+  contractVersion: 1.4.0
+  semanticModelVersion: 1.4.0
+  layer: GOLD
+  qualityScore: 88
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: new_business_conversion
+    name: New business conversion
+    definition: Share of quotes that bind, by channel and product.
+    grain: channel / month
+    unit: percent
+    semanticRef: semantic.distribution_performance.new_business_conversion
+  - key: broker_retention_rate
+    name: Broker retention rate
+    definition: Share of producing brokers still producing twelve months later.
+    grain: region / quarter
+    unit: percent
+    semanticRef: semantic.distribution_performance.broker_retention_rate
+- key: pricing-and-rating
+  name: Pricing & Rating
+  description: Rate adequacy and quote behaviour metrics used in underwriting review.
+  domainKey: underwriting
+  owner: Pricing Analytics
+  contractVersion: 1.2.0
+  semanticModelVersion: 1.2.0
+  layer: GOLD
+  qualityScore: 91
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: rate_adequacy
+    name: Rate adequacy
+    definition: Charged premium over technical price for the same risk.
+    grain: segment / quarter
+    unit: ratio
+    semanticRef: semantic.pricing_and_rating.rate_adequacy
+  - key: quote_to_bind_ratio
+    name: Quote to bind ratio
+    definition: Bound policies over quotes issued, by segment.
+    grain: segment / month
+    unit: ratio
+    semanticRef: semantic.pricing_and_rating.quote_to_bind_ratio
+- key: policy-retention
+  name: Policy Retention
+  description: Lapse, renewal, and mid-term adjustment metrics across the in-force book.
+  domainKey: distribution
+  owner: Retention Analytics
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 89
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: policy_lapse_rate
+    name: Policy lapse rate
+    definition: Share of policies not renewed at expiry, excluding cancelled-flat policies.
+    grain: product / month
+    unit: percent
+    semanticRef: semantic.policy_retention.policy_lapse_rate
+  - key: renewal_premium_uplift
+    name: Renewal premium uplift
+    definition: Average premium change applied at renewal for retained policies.
+    grain: product / month
+    unit: percent
+    semanticRef: semantic.policy_retention.renewal_premium_uplift
+- key: claims-supply-chain
+  name: Claims Supply Chain
+  description: Repairer, supplier, and indemnity metrics for the claims delivery network.
+  domainKey: claims
+  owner: Claims Operations
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 87
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: repair_cycle_time
+    name: Repair cycle time
+    definition: Days from first notification of loss to repair completion.
+    grain: supplier / month
+    unit: days
+    semanticRef: semantic.claims_supply_chain.repair_cycle_time
+  - key: indemnity_leakage
+    name: Indemnity leakage
+    definition: Estimated avoidable indemnity spend as a share of paid claims.
+    grain: product / quarter
+    unit: percent
+    semanticRef: semantic.claims_supply_chain.indemnity_leakage
+- key: catastrophe-exposure
+  name: Catastrophe Exposure
+  description: Aggregate exposure and modelled loss metrics by peril and accumulation zone.
+  domainKey: actuarial
+  owner: Exposure Management
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 93
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 168
+  metrics:
+  - key: aggregate_exposure
+    name: Aggregate exposure
+    definition: Total sum insured within an accumulation zone for a peril.
+    grain: zone / quarter
+    unit: currency
+    semanticRef: semantic.catastrophe_exposure.aggregate_exposure
+  - key: probable_maximum_loss
+    name: Probable maximum loss
+    definition: Modelled loss at the stated return period for a peril and zone.
+    grain: zone / quarter
+    unit: currency
+    semanticRef: semantic.catastrophe_exposure.probable_maximum_loss
 starterAgents:
 - key: claims-severity-monitor
   name: Claims Severity Monitor

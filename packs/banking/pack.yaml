@@ -112,6 +112,180 @@ dataProducts:
     grain: typology / month
     unit: percent
     semanticRef: semantic.financial_crime_signals.alert_conversion_rate
+- key: deposits-and-savings
+  name: Deposits & Savings
+  description: Certified balance, growth, and attrition metrics across retail deposit products.
+  domainKey: retail-banking
+  owner: Retail Analytics
+  contractVersion: 1.5.0
+  semanticModelVersion: 1.5.0
+  layer: GOLD
+  qualityScore: 93
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: deposit_balance_growth
+    name: Deposit balance growth
+    definition: Net change in deposit balances for a segment, excluding internal transfers.
+    grain: segment / month
+    unit: percent
+    semanticRef: semantic.deposits_and_savings.deposit_balance_growth
+  - key: deposit_attrition_rate
+    name: Deposit attrition rate
+    definition: Share of accounts closed or drained below the active threshold in the period.
+    grain: segment / month
+    unit: percent
+    semanticRef: semantic.deposits_and_savings.deposit_attrition_rate
+- key: lending-origination
+  name: Lending Origination
+  description: Application, decision, and drawdown metrics across commercial lending products.
+  domainKey: commercial-lending
+  owner: Lending Analytics
+  contractVersion: 2.1.0
+  semanticModelVersion: 2.1.0
+  layer: GOLD
+  qualityScore: 91
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: approval_cycle_time
+    name: Approval cycle time
+    definition: Working days from a complete application to a credit decision.
+    grain: application / month
+    unit: days
+    semanticRef: semantic.lending_origination.approval_cycle_time
+  - key: origination_volume
+    name: Origination volume
+    definition: Value of new facilities drawn in the period, by product and segment.
+    grain: product / month
+    unit: currency
+    semanticRef: semantic.lending_origination.origination_volume
+  - key: decline_rate
+    name: Decline rate
+    definition: Share of complete applications declined at credit decision.
+    grain: product / month
+    unit: percent
+    semanticRef: semantic.lending_origination.decline_rate
+- key: payments-flows
+  name: Payments Flows
+  description: Certified volume, success, and settlement-latency metrics across payment rails.
+  domainKey: payments
+  owner: Payments Analytics
+  contractVersion: 1.2.0
+  semanticModelVersion: 1.2.0
+  layer: GOLD
+  qualityScore: 95
+  sensitivity: INTERNAL
+  freshnessSlaHours: 4
+  metrics:
+  - key: payment_success_rate
+    name: Payment success rate
+    definition: Share of initiated payments that settle without manual intervention.
+    grain: rail / day
+    unit: percent
+    semanticRef: semantic.payments_flows.payment_success_rate
+  - key: settlement_latency
+    name: Settlement latency
+    definition: Median seconds from payment initiation to confirmed settlement.
+    grain: rail / day
+    unit: seconds
+    semanticRef: semantic.payments_flows.settlement_latency
+- key: capital-and-liquidity
+  name: Capital & Liquidity
+  description: Regulatory capital and liquidity metrics, reconciled to the submitted returns.
+  domainKey: risk-and-capital
+  owner: Treasury Reporting
+  contractVersion: 3.0.0
+  semanticModelVersion: 3.0.0
+  layer: GOLD
+  qualityScore: 97
+  sensitivity: RESTRICTED
+  freshnessSlaHours: 72
+  metrics:
+  - key: liquidity_coverage_ratio
+    name: Liquidity coverage ratio
+    definition: High-quality liquid assets over projected net outflows for the stress window.
+    grain: entity / month
+    unit: percent
+    semanticRef: semantic.capital_and_liquidity.liquidity_coverage_ratio
+  - key: rwa_density
+    name: RWA density
+    definition: Risk-weighted assets as a share of total exposure, by portfolio.
+    grain: portfolio / quarter
+    unit: percent
+    semanticRef: semantic.capital_and_liquidity.rwa_density
+- key: collections-and-arrears
+  name: Collections & Arrears
+  description: Arrears, cure, and forbearance metrics across retail and commercial books.
+  domainKey: retail-banking
+  owner: Collections Analytics
+  contractVersion: 1.4.0
+  semanticModelVersion: 1.4.0
+  layer: GOLD
+  qualityScore: 89
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: arrears_rate_30dpd
+    name: Arrears rate (30 DPD)
+    definition: Share of accounts thirty or more days past due at period end.
+    grain: portfolio / month
+    unit: percent
+    semanticRef: semantic.collections_and_arrears.arrears_rate_30dpd
+  - key: cure_rate
+    name: Cure rate
+    definition: Share of accounts entering arrears that return to current within ninety days.
+    grain: portfolio / month
+    unit: percent
+    semanticRef: semantic.collections_and_arrears.cure_rate
+- key: complaints-and-conduct
+  name: Complaints & Conduct
+  description: Complaint volumes, uphold rates, and remediation progress, by product and root cause.
+  domainKey: retail-banking
+  owner: Conduct Risk
+  contractVersion: 1.1.0
+  semanticModelVersion: 1.1.0
+  layer: GOLD
+  qualityScore: 88
+  sensitivity: CONFIDENTIAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: complaint_upheld_rate
+    name: Complaint upheld rate
+    definition: Share of closed complaints decided in the customer's favour.
+    grain: product / month
+    unit: percent
+    semanticRef: semantic.complaints_and_conduct.complaint_upheld_rate
+  - key: remediation_backlog
+    name: Remediation backlog
+    definition: Open remediation cases past their committed completion date.
+    grain: programme / week
+    unit: count
+    semanticRef: semantic.complaints_and_conduct.remediation_backlog
+- key: channel-and-digital
+  name: Channel & Digital
+  description: Adoption and cost-to-serve across branch, contact centre, and digital channels.
+  domainKey: retail-banking
+  owner: Channel Analytics
+  contractVersion: 1.0.0
+  semanticModelVersion: 1.0.0
+  layer: GOLD
+  qualityScore: 86
+  sensitivity: INTERNAL
+  freshnessSlaHours: 24
+  metrics:
+  - key: digital_adoption_rate
+    name: Digital adoption rate
+    definition: Share of active customers who completed a servicing task digitally in the period.
+    grain: segment / month
+    unit: percent
+    semanticRef: semantic.channel_and_digital.digital_adoption_rate
+  - key: cost_to_serve
+    name: Cost to serve
+    definition: Fully loaded servicing cost per active customer, by channel mix.
+    grain: segment / quarter
+    unit: currency
+    semanticRef: semantic.channel_and_digital.cost_to_serve
 starterAgents:
 - key: credit-watchlist-advisor
   name: Credit Watchlist Advisor

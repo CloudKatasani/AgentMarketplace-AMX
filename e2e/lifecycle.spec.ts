@@ -77,6 +77,15 @@ test("the validator refuses a bad binding in words a business user can act on", 
   await page.goto(`/agents/${agentId}/stages/3-data-product-binding`);
 
   const form = page.locator('form:has(button:has-text("Validate and commit"))').first();
+  // Pick the product the seeded agent actually answers from — packs ship nine
+  // or ten now, so whatever sorts first is not the one under test. Option
+  // labels carry the contract and quality too, hence matching on value.
+  const productSelect = form.locator("#dataProductId");
+  const customer360 = await productSelect
+    .locator("option", { hasText: "Customer 360" })
+    .first()
+    .getAttribute("value");
+  await productSelect.selectOption(customer360!);
   await form.locator("#type").selectOption("QUERIES");
   await form
     .locator("#purpose")
