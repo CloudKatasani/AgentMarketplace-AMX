@@ -39,6 +39,30 @@ personas:
   ownedDecisions: Which orders are expedited and which allocations are cut.
   cadence: Daily
   currentWorkaround: Works from an exception report that does not explain the cause.
+- key: store-operations-manager
+  name: Store Operations Manager
+  kind: BUSINESS
+  ownedDecisions: Where hours are added or cut across the estate each week.
+  cadence: Weekly
+  currentWorkaround: Compares labour reports with sales exports that arrive on different days.
+- key: ecommerce-manager
+  name: Ecommerce Manager
+  kind: BUSINESS
+  ownedDecisions: Which journey fixes and campaigns go live next.
+  cadence: Daily
+  currentWorkaround: Watches a funnel dashboard with no view of what changed upstream.
+- key: loyalty-manager
+  name: Loyalty Manager
+  kind: BUSINESS
+  ownedDecisions: Which segments get an offer and what it costs.
+  cadence: Weekly
+  currentWorkaround: Builds segments from an export that is a week stale.
+- key: fulfilment-manager
+  name: Fulfilment Manager
+  kind: BUSINESS
+  ownedDecisions: Where capacity is added and which carrier is used.
+  cadence: Daily
+  currentWorkaround: Reads carrier reports separately from the order book.
 questionLibrary:
 - key: q-availability
   personaKey: category-manager
@@ -68,6 +92,90 @@ questionLibrary:
   consequenceOfNoAnswer: Allocations are cut across the board rather than where the shortfall is.
   expectedAnswerShape: Supplier list with fill rate against target
   metricKey: supplier_fill_rate
+- key: q-lane-cost-trend
+  personaKey: fulfilment-manager
+  text: How is cost per order trending by lane?
+  intentClass: trend
+  consequenceOfNoAnswer: Cost creeps up lane by lane between reviews.
+  expectedAnswerShape: Lane trend with cost per order
+  metricKey: cost_per_order
+- key: q-device-conversion
+  personaKey: ecommerce-manager
+  text: Where does conversion differ most by device?
+  intentClass: comparison
+  consequenceOfNoAnswer: A mobile-only failure hides inside a healthy total.
+  expectedAnswerShape: Device comparison with conversion
+  metricKey: conversion_rate
+- key: q-store-trend
+  personaKey: store-operations-manager
+  text: How is labour productivity trending by format?
+  intentClass: trend
+  consequenceOfNoAnswer: Productivity slips seasonally and is read as noise.
+  expectedAnswerShape: Format trend with hours per sale
+  metricKey: labour_hours_per_sale
+- key: q-labour-productivity
+  personaKey: store-operations-manager
+  text: Which stores are using the most hours per sale?
+  intentClass: comparison
+  consequenceOfNoAnswer: Hours are cut evenly rather than where they are unproductive.
+  expectedAnswerShape: Store list with hours per sale
+  metricKey: labour_hours_per_sale
+- key: q-shrink-hotspots
+  personaKey: store-operations-manager
+  text: Where is shrink concentrated this period?
+  intentClass: lookup
+  consequenceOfNoAnswer: Shrink is treated as a cost of trading rather than a location problem.
+  expectedAnswerShape: Store and category with shrink rate
+  metricKey: shrink_rate
+- key: q-conversion-drop
+  personaKey: ecommerce-manager
+  text: Where did conversion drop after the last release?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: A broken step stays live because the total looks normal.
+  expectedAnswerShape: Step conversion before and after
+  metricKey: conversion_rate
+- key: q-abandonment
+  personaKey: ecommerce-manager
+  text: Which baskets are being abandoned most, and at which step?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: Abandonment is answered with discounts instead of fixes.
+  expectedAnswerShape: Step list with abandonment rate
+  metricKey: basket_abandonment_rate
+- key: q-repeat-purchase
+  personaKey: loyalty-manager
+  text: Which segments are buying again within ninety days?
+  intentClass: trend
+  consequenceOfNoAnswer: Offers go to segments that would have returned anyway.
+  expectedAnswerShape: Segment trend with repeat rate
+  metricKey: repeat_purchase_rate
+- key: q-loyalty-penetration
+  personaKey: loyalty-manager
+  text: Where is loyalty identification weakest?
+  intentClass: comparison
+  consequenceOfNoAnswer: Half the basket data is missing and nobody says which half.
+  expectedAnswerShape: Store list with identified share
+  metricKey: loyalty_penetration
+- key: q-delivery-late
+  personaKey: fulfilment-manager
+  text: Which lanes are missing the promised delivery slot?
+  intentClass: lookup
+  consequenceOfNoAnswer: A carrier problem is discovered through customer contact.
+  expectedAnswerShape: Lane list with on-time rate
+  metricKey: on_time_delivery
+- key: q-cost-per-order
+  personaKey: fulfilment-manager
+  text: Where is cost per order highest, and what is driving it?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: Fulfilment cost is managed as one number for the whole network.
+  expectedAnswerShape: Node list with cost and driver
+  metricKey: cost_per_order
+- key: q-promo-roi
+  personaKey: category-manager
+  text: Which promotions actually returned their investment?
+  intentClass: comparison
+  consequenceOfNoAnswer: The same mechanic is repeated because it felt busy.
+  expectedAnswerShape: Campaign list with ROI
+  metricKey: promotion_roi
 dataProducts:
 - key: product-performance
   name: Product Performance
@@ -303,6 +411,99 @@ starterAgents:
     metricKeys:
     - on_shelf_availability
     - gross_margin_rate
+- key: store-productivity-advisor
+  name: Store Productivity Advisor
+  summary: Shows which stores use the most hours per sale and where shrink concentrates, from certified store metrics.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: store-operations
+  primaryPersonaKey: store-operations-manager
+  questionKeys:
+  - q-labour-productivity
+  - q-shrink-hotspots
+  - q-store-trend
+  bindings:
+  - dataProductKey: store-operations-360
+    type: GROUNDS_ON
+    purpose: Store, format, and shift context frames every productivity answer.
+    metricKeys: []
+  - dataProductKey: store-operations-360
+    type: QUERIES
+    purpose: Reads certified labour hours per sale and shrink rate.
+    metricKeys:
+    - labour_hours_per_sale
+    - shrink_rate
+- key: conversion-drop-analyst
+  name: Conversion Drop Analyst
+  summary: Explains where the digital funnel lost people and at which step baskets are abandoned, from certified metrics.
+  archetype: Analyst
+  riskTier: decision-support
+  domainKey: ecommerce
+  primaryPersonaKey: ecommerce-manager
+  questionKeys:
+  - q-conversion-drop
+  - q-abandonment
+  - q-device-conversion
+  bindings:
+  - dataProductKey: ecommerce-funnel
+    type: GROUNDS_ON
+    purpose: Session, step, and device context frames every funnel answer.
+    metricKeys: []
+  - dataProductKey: ecommerce-funnel
+    type: QUERIES
+    purpose: Reads certified conversion and basket abandonment.
+    metricKeys:
+    - conversion_rate
+    - basket_abandonment_rate
+- key: loyalty-segment-advisor
+  name: Loyalty Segment Advisor
+  summary: Shows which segments return without prompting and where loyalty identification is weakest, from certified metrics.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: customer-loyalty
+  primaryPersonaKey: loyalty-manager
+  questionKeys:
+  - q-repeat-purchase
+  - q-loyalty-penetration
+  - q-promo-roi
+  bindings:
+  - dataProductKey: loyalty-and-crm
+    type: GROUNDS_ON
+    purpose: Member, segment, and campaign context frames every offer answer.
+    metricKeys: []
+  - dataProductKey: loyalty-and-crm
+    type: QUERIES
+    purpose: Reads certified repeat purchase and loyalty penetration.
+    metricKeys:
+    - repeat_purchase_rate
+    - loyalty_penetration
+  - dataProductKey: pricing-and-promotions
+    type: QUERIES
+    purpose: Reads certified promotion ROI where an offer is being considered.
+    metricKeys:
+    - promotion_roi
+- key: fulfilment-cost-monitor
+  name: Fulfilment Cost Monitor
+  summary: Watches delivery reliability and cost per order across the network, and says which lane is failing.
+  archetype: Monitor
+  riskTier: decision-support
+  domainKey: supply-chain
+  primaryPersonaKey: fulfilment-manager
+  questionKeys:
+  - q-delivery-late
+  - q-cost-per-order
+  - q-lane-cost-trend
+  bindings:
+  - dataProductKey: fulfilment-and-delivery
+    type: GROUNDS_ON
+    purpose: Lane, node, and carrier context frames every delivery answer.
+    metricKeys: []
+  - dataProductKey: fulfilment-and-delivery
+    type: QUERIES
+    purpose: Reads certified on-time delivery and cost per order.
+    metricKeys:
+    - on_time_delivery
+    - cost_per_order
 regulatoryConstraints:
 - key: personal-data-minimisation
   name: Personal data minimisation

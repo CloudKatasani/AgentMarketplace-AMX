@@ -42,6 +42,30 @@ personas:
   ownedDecisions: Which data quality incidents are escalated and which pipelines are paused.
   cadence: Daily
   currentWorkaround: Reads alert channels and checks freshness manually.
+- key: customer-success-lead
+  name: Customer Success Lead
+  kind: BUSINESS
+  ownedDecisions: Which accounts get attention this week and which are left alone.
+  cadence: Weekly
+  currentWorkaround: Works from a churn list built by hand each Monday.
+- key: service-owner
+  name: Service Owner
+  kind: BUSINESS
+  ownedDecisions: Where reliability work goes next.
+  cadence: Weekly
+  currentWorkaround: Reads incident counts with no view of which service they belong to.
+- key: commercial-analyst
+  name: Commercial Analyst
+  kind: BUSINESS
+  ownedDecisions: Which forecast is taken to the board.
+  cadence: Monthly
+  currentWorkaround: Reconciles a pipeline export against a finance ledger by hand.
+- key: compliance-manager
+  name: Compliance Manager
+  kind: BUSINESS
+  ownedDecisions: Which control failures are escalated and which are accepted.
+  cadence: Quarterly
+  currentWorkaround: Chases control owners by email for evidence.
 questionLibrary:
 - key: q-exception-volume
   personaKey: operations-analyst
@@ -71,6 +95,90 @@ questionLibrary:
   consequenceOfNoAnswer: Consumers find out from a wrong number rather than from us.
   expectedAnswerShape: Product list with hours since refresh against SLA
   metricKey: freshness_breach_count
+- key: q-control-trend
+  personaKey: compliance-manager
+  text: How is control pass rate moving by framework?
+  intentClass: trend
+  consequenceOfNoAnswer: Control health is asserted rather than shown.
+  expectedAnswerShape: Framework trend with pass rate
+  metricKey: control_pass_rate
+- key: q-incident-trend
+  personaKey: service-owner
+  text: How is the incident rate moving month on month?
+  intentClass: trend
+  consequenceOfNoAnswer: A slow degradation is only visible in hindsight.
+  expectedAnswerShape: Service trend with incident rate
+  metricKey: incident_rate
+- key: q-customer-trend
+  personaKey: customer-success-lead
+  text: How is the active customer base trending?
+  intentClass: trend
+  consequenceOfNoAnswer: Growth is reported from contracts rather than usage.
+  expectedAnswerShape: Active count trend by segment
+  metricKey: active_customers
+- key: q-active-customers
+  personaKey: customer-success-lead
+  text: How many customers are actually active this month?
+  intentClass: lookup
+  consequenceOfNoAnswer: Reporting counts contracts rather than usage.
+  expectedAnswerShape: Active count by segment
+  metricKey: active_customers
+- key: q-churn-where
+  personaKey: customer-success-lead
+  text: Where is churn concentrated?
+  intentClass: comparison
+  consequenceOfNoAnswer: Retention effort spreads evenly across uneven risk.
+  expectedAnswerShape: Segment list with churn rate
+  metricKey: customer_churn_rate
+- key: q-sla-attainment
+  personaKey: service-owner
+  text: Which services are missing their service levels?
+  intentClass: lookup
+  consequenceOfNoAnswer: A missed level is reported after the customer noticed.
+  expectedAnswerShape: Service list with attainment
+  metricKey: sla_attainment
+- key: q-incident-drivers
+  personaKey: service-owner
+  text: Which services generate the most incidents per transaction?
+  intentClass: comparison
+  consequenceOfNoAnswer: Reliability work goes to the loudest service, not the worst.
+  expectedAnswerShape: Service list with incident rate
+  metricKey: incident_rate
+- key: q-forecast-accuracy
+  personaKey: commercial-analyst
+  text: How accurate has the forecast been by segment?
+  intentClass: trend
+  consequenceOfNoAnswer: The same optimistic segment is believed every quarter.
+  expectedAnswerShape: Segment trend with error
+  metricKey: forecast_accuracy
+- key: q-pipeline-conversion
+  personaKey: commercial-analyst
+  text: Where is pipeline converting best?
+  intentClass: comparison
+  consequenceOfNoAnswer: Capacity is planned against a pipeline nobody weighted.
+  expectedAnswerShape: Segment list with conversion
+  metricKey: pipeline_conversion
+- key: q-control-failures
+  personaKey: compliance-manager
+  text: Which controls failed testing this quarter?
+  intentClass: lookup
+  consequenceOfNoAnswer: Committee hears about a failure at the same time as the regulator.
+  expectedAnswerShape: Control list with test result
+  metricKey: control_pass_rate
+- key: q-overdue-actions
+  personaKey: compliance-manager
+  text: Which remediation actions are overdue?
+  intentClass: trend
+  consequenceOfNoAnswer: An overdue action ages quietly until it is an incident.
+  expectedAnswerShape: Action list with days overdue
+  metricKey: overdue_actions
+- key: q-cost-per-transaction
+  personaKey: finance-controller
+  text: Where is cost per transaction highest?
+  intentClass: comparison
+  consequenceOfNoAnswer: Cost is managed as one total rather than where it is made.
+  expectedAnswerShape: Channel list with unit cost
+  metricKey: cost_per_transaction
 dataProducts:
 - key: operations-360
   name: Operations 360
@@ -308,6 +416,99 @@ starterAgents:
     metricKeys:
     - exception_rate
     - freshness_breach_count
+- key: customer-retention-advisor
+  name: Customer Retention Advisor
+  summary: Shows who is genuinely active and where churn concentrates, from certified customer metrics.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: customer
+  primaryPersonaKey: customer-success-lead
+  questionKeys:
+  - q-active-customers
+  - q-churn-where
+  - q-customer-trend
+  bindings:
+  - dataProductKey: customer-360
+    type: GROUNDS_ON
+    purpose: Conformed customer context frames every retention answer.
+    metricKeys: []
+  - dataProductKey: customer-360
+    type: QUERIES
+    purpose: Reads certified active customers and churn rate.
+    metricKeys:
+    - active_customers
+    - customer_churn_rate
+- key: service-reliability-monitor
+  name: Service Reliability Monitor
+  summary: Watches service level attainment and incident rate per service, so reliability work follows the evidence.
+  archetype: Monitor
+  riskTier: decision-support
+  domainKey: operations
+  primaryPersonaKey: service-owner
+  questionKeys:
+  - q-sla-attainment
+  - q-incident-drivers
+  - q-incident-trend
+  bindings:
+  - dataProductKey: service-quality
+    type: GROUNDS_ON
+    purpose: Service and transaction context frames every reliability answer.
+    metricKeys: []
+  - dataProductKey: service-quality
+    type: QUERIES
+    purpose: Reads certified SLA attainment and incident rate.
+    metricKeys:
+    - sla_attainment
+    - incident_rate
+- key: forecast-accuracy-analyst
+  name: Forecast Accuracy Analyst
+  summary: Explains where the forecast has been wrong and where pipeline converts, from certified commercial metrics.
+  archetype: Analyst
+  riskTier: decision-support
+  domainKey: customer
+  primaryPersonaKey: commercial-analyst
+  questionKeys:
+  - q-forecast-accuracy
+  - q-pipeline-conversion
+  - q-cost-per-transaction
+  bindings:
+  - dataProductKey: demand-and-pipeline
+    type: GROUNDS_ON
+    purpose: Pipeline stage and segment context frames every forecast answer.
+    metricKeys: []
+  - dataProductKey: demand-and-pipeline
+    type: QUERIES
+    purpose: Reads certified forecast accuracy and pipeline conversion.
+    metricKeys:
+    - forecast_accuracy
+    - pipeline_conversion
+  - dataProductKey: cost-to-serve
+    type: QUERIES
+    purpose: Reads certified cost per transaction where unit economics matter to the answer.
+    metricKeys:
+    - cost_per_transaction
+- key: control-failure-monitor
+  name: Control Failure Monitor
+  summary: Tracks which controls failed testing and which remediation actions are overdue, from the certified register.
+  archetype: Monitor
+  riskTier: informational
+  domainKey: finance
+  primaryPersonaKey: compliance-manager
+  questionKeys:
+  - q-control-failures
+  - q-overdue-actions
+  - q-control-trend
+  bindings:
+  - dataProductKey: compliance-register
+    type: GROUNDS_ON
+    purpose: Framework and control context frames every compliance answer.
+    metricKeys: []
+  - dataProductKey: compliance-register
+    type: QUERIES
+    purpose: Reads certified control pass rate and overdue actions.
+    metricKeys:
+    - control_pass_rate
+    - overdue_actions
 regulatoryConstraints:
 - key: personal-data-minimisation
   name: Personal data minimisation

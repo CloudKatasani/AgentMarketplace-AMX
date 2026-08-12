@@ -48,15 +48,39 @@ describe("starting without an account", () => {
       isShowcase: false,
     });
 
-    // Seeded from the chosen pack, so nobody lands on an empty screen.
+    // Seeded from the chosen pack, so nobody lands on an empty screen — and the
+    // workspace shows the same portfolio the industry catalogue advertises,
+    // rather than one agent while the catalogue claims five.
     const agents = await inOrg(guest.organizationId, () =>
-      db.agent.findMany({ select: { id: true } }),
+      db.agent.findMany({ select: { id: true, slug: true, status: true, currentStageId: true } }),
     );
     const questions = await inOrg(guest.organizationId, () =>
       db.question.count({ where: { archivedAt: null } }),
     );
-    expect(agents.length).toBeGreaterThan(0);
+    expect(agents.length).toBeGreaterThanOrEqual(5);
     expect(questions).toBeGreaterThanOrEqual(3);
+
+    // One arrives mid-lifecycle and bound; the rest are honest drafts with
+    // their persona and questions and nothing anybody has to disown.
+    const inProgress = agents.filter((agent) => agent.status === "IN_PROGRESS");
+    expect(inProgress).toHaveLength(1);
+    expect(inProgress[0].currentStageId).toBe("3-data-product-binding");
+
+    const drafts = agents.filter((agent) => agent.status === "DRAFT");
+    expect(drafts.length).toBeGreaterThanOrEqual(4);
+    for (const draft of drafts) {
+      expect(draft.currentStageId).toBe("1-consumption-discovery");
+    }
+
+    const draftBindings = await inOrg(guest.organizationId, () =>
+      db.binding.count({ where: { agentId: { in: drafts.map((draft) => draft.id) } } }),
+    );
+    expect(draftBindings).toBe(0);
+
+    const draftQuestions = await inOrg(guest.organizationId, () =>
+      db.question.count({ where: { agentId: drafts[0].id, archivedAt: null } }),
+    );
+    expect(draftQuestions).toBeGreaterThanOrEqual(3);
   });
 
   it("cannot invite anyone until it is claimed", async () => {
@@ -190,6 +214,43 @@ describe("the public catalogue", () => {
     // Bindings resolve to a real product with its contract version.
     expect(advisor.bindings.length).toBeGreaterThan(0);
     expect(advisor.bindings[0].contractVersion).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it("ships a portfolio of agents per industry, each answering real metrics", () => {
+    // One agent per industry is a demo; a catalogue is several, each with a
+    // persona, at least three questions, and every question resting on a metric
+    // that exists in the same pack.
+    for (const industry of catalogIndustries()) {
+      const view = catalogIndustry(industry.key)!;
+      expect(view.agents.length, `${industry.key} agents`).toBeGreaterThanOrEqual(5);
+
+      const metricKeys = new Set(
+        view.dataProducts.flatMap((product) => product.metrics.map((metric) => metric.key)),
+      );
+      const productKeys = new Set(view.dataProducts.map((product) => product.key));
+
+      for (const agent of view.agents) {
+        expect(agent.questions.length, `${agent.key} questions`).toBeGreaterThanOrEqual(3);
+        for (const question of agent.questions) {
+          expect(metricKeys.has(question.metricKey), `${agent.key}: ${question.metricKey}`).toBe(true);
+          expect(question.dataProductName, `${agent.key}: ${question.key}`).toBeTruthy();
+        }
+
+        expect(agent.bindings.length, `${agent.key} bindings`).toBeGreaterThan(0);
+        for (const binding of agent.bindings) {
+          expect(productKeys.has(binding.dataProductKey), binding.dataProductKey).toBe(true);
+          // A QUERIES binding names certified metrics; GROUNDS_ON carries
+          // context and names none. Anything else the validator would reject.
+          if (binding.type === "QUERIES") {
+            expect(binding.metricKeys.length, `${agent.key} queries`).toBeGreaterThan(0);
+            for (const key of binding.metricKeys) expect(metricKeys.has(key), key).toBe(true);
+          }
+          if (binding.type === "GROUNDS_ON") {
+            expect(binding.metricKeys).toEqual([]);
+          }
+        }
+      }
+    }
   });
 
   it("carries enough products per industry to be worth browsing", () => {

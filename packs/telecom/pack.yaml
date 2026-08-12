@@ -39,6 +39,30 @@ personas:
   ownedDecisions: Which cells are prioritised for optimisation and which faults are escalated.
   cadence: Daily
   currentWorkaround: Reads a performance dashboard and correlates complaints manually.
+- key: service-assurance-manager
+  name: Service Assurance Manager
+  kind: BUSINESS
+  ownedDecisions: Which fault classes get engineering attention this sprint.
+  cadence: Daily
+  currentWorkaround: Reads fault tickets with no view of which faults repeat.
+- key: enterprise-account-manager
+  name: Enterprise Account Manager
+  kind: BUSINESS
+  ownedDecisions: Which accounts get a service review and where credits are conceded.
+  cadence: Monthly
+  currentWorkaround: Assembles an SLA position from tickets the customer already quoted.
+- key: device-product-manager
+  name: Device Product Manager
+  kind: BUSINESS
+  ownedDecisions: Which upgrade offers run, and at what subsidy.
+  cadence: Monthly
+  currentWorkaround: Judges upgrade appetite from last quarter's take-up sheet.
+- key: field-installation-lead
+  name: Field Installation Lead
+  kind: BUSINESS
+  ownedDecisions: Where install capacity goes and which jobs are re-scheduled.
+  cadence: Daily
+  currentWorkaround: Balances an install diary against a provisioning system that lags it.
 questionLibrary:
 - key: q-churn-risk
   personaKey: retention-manager
@@ -68,6 +92,90 @@ questionLibrary:
   consequenceOfNoAnswer: Optimisation goes where complaints are loudest rather than where load is.
   expectedAnswerShape: Cell list with congestion rate and change
   metricKey: cell_congestion_rate
+- key: q-upgrade-timing
+  personaKey: device-product-manager
+  text: When in the contract do upgrades actually happen?
+  intentClass: trend
+  consequenceOfNoAnswer: Offers land months before or after the moment of appetite.
+  expectedAnswerShape: Take rate by contract month
+  metricKey: upgrade_take_rate
+- key: q-credit-exposure
+  personaKey: enterprise-account-manager
+  text: Which accounts have the largest service-credit exposure?
+  intentClass: comparison
+  consequenceOfNoAnswer: Credits are conceded without a view of the total.
+  expectedAnswerShape: Account list with exposure
+  metricKey: sla_attainment
+- key: q-fault-volume
+  personaKey: service-assurance-manager
+  text: Which regions are raising the most faults this week?
+  intentClass: lookup
+  consequenceOfNoAnswer: Engineering attention follows escalation, not volume.
+  expectedAnswerShape: Region list with fault volume
+  metricKey: mean_time_to_restore
+- key: q-fault-repeat
+  personaKey: service-assurance-manager
+  text: Which fault classes keep coming back after restoration?
+  intentClass: trend
+  consequenceOfNoAnswer: The same fault is fixed repeatedly and never resolved.
+  expectedAnswerShape: Fault class with repeat rate
+  metricKey: repeat_fault_rate
+- key: q-restore-time
+  personaKey: service-assurance-manager
+  text: Where is restoration slowest, and for which class?
+  intentClass: comparison
+  consequenceOfNoAnswer: Restoration targets are missed in a region nobody is watching.
+  expectedAnswerShape: Region list with time to restore
+  metricKey: mean_time_to_restore
+- key: q-sla-breach
+  personaKey: enterprise-account-manager
+  text: Which enterprise accounts are closest to an SLA breach?
+  intentClass: forecast
+  consequenceOfNoAnswer: A credit is conceded before anyone knew it was coming.
+  expectedAnswerShape: Account list with SLA position
+  metricKey: sla_attainment
+- key: q-renewal-risk
+  personaKey: enterprise-account-manager
+  text: Which contracts are up for renewal with poor service history?
+  intentClass: recommendation
+  consequenceOfNoAnswer: Renewal conversations start without the service story.
+  expectedAnswerShape: Contract list with renewal date
+  metricKey: contract_renewal_rate
+- key: q-upgrade-appetite
+  personaKey: device-product-manager
+  text: Which segments are taking up upgrades fastest?
+  intentClass: trend
+  consequenceOfNoAnswer: Subsidy is spent evenly across uneven appetite.
+  expectedAnswerShape: Segment trend with take rate
+  metricKey: upgrade_take_rate
+- key: q-device-margin
+  personaKey: device-product-manager
+  text: Where is device margin thinnest after subsidy?
+  intentClass: comparison
+  consequenceOfNoAnswer: A popular offer turns out to lose money per unit.
+  expectedAnswerShape: Device list with margin
+  metricKey: device_margin
+- key: q-install-first-time
+  personaKey: field-installation-lead
+  text: Where are installs failing on the first visit?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: Repeat visits absorb capacity that new orders needed.
+  expectedAnswerShape: Region list with first-time-right rate
+  metricKey: install_first_time_right
+- key: q-provisioning-lag
+  personaKey: field-installation-lead
+  text: How long are orders taking to reach activation?
+  intentClass: trend
+  consequenceOfNoAnswer: Order-to-activation is quoted from memory, not measurement.
+  expectedAnswerShape: Product trend with lead time
+  metricKey: provisioning_lead_time
+- key: q-cell-headroom
+  personaKey: network-performance-analyst
+  text: Which cells run out of capacity first at current growth?
+  intentClass: forecast
+  consequenceOfNoAnswer: Capacity is added after customers have already felt it.
+  expectedAnswerShape: Cell list with months of headroom
+  metricKey: capacity_headroom
 dataProducts:
 - key: subscriber-360
   name: Subscriber 360
@@ -303,6 +411,99 @@ starterAgents:
     metricKeys:
     - churn_propensity
     - experience_index
+- key: fault-pattern-analyst
+  name: Fault Pattern Analyst
+  summary: Explains which faults repeat and where restoration is slowest, from certified assurance metrics.
+  archetype: Analyst
+  riskTier: decision-support
+  domainKey: service-assurance
+  primaryPersonaKey: service-assurance-manager
+  questionKeys:
+  - q-fault-repeat
+  - q-restore-time
+  - q-fault-volume
+  bindings:
+  - dataProductKey: service-assurance-360
+    type: GROUNDS_ON
+    purpose: Fault class, region, and service context frames every answer.
+    metricKeys: []
+  - dataProductKey: service-assurance-360
+    type: QUERIES
+    purpose: Reads certified time to restore and repeat fault rate.
+    metricKeys:
+    - mean_time_to_restore
+    - repeat_fault_rate
+- key: enterprise-sla-monitor
+  name: Enterprise SLA Monitor
+  summary: Watches SLA position and renewal exposure per account, so a service review happens before a credit does.
+  archetype: Monitor
+  riskTier: decision-support
+  domainKey: enterprise-accounts
+  primaryPersonaKey: enterprise-account-manager
+  questionKeys:
+  - q-sla-breach
+  - q-renewal-risk
+  - q-credit-exposure
+  bindings:
+  - dataProductKey: enterprise-contracts
+    type: GROUNDS_ON
+    purpose: Account, contract, and service-level context frames every answer.
+    metricKeys: []
+  - dataProductKey: enterprise-contracts
+    type: QUERIES
+    purpose: Reads certified SLA attainment and renewal rate.
+    metricKeys:
+    - sla_attainment
+    - contract_renewal_rate
+- key: upgrade-appetite-advisor
+  name: Upgrade Appetite Advisor
+  summary: Shows where upgrade take-up is strongest and where device margin is thinnest, from certified metrics.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: consumer-mobile
+  primaryPersonaKey: device-product-manager
+  questionKeys:
+  - q-upgrade-appetite
+  - q-device-margin
+  - q-upgrade-timing
+  bindings:
+  - dataProductKey: device-and-upgrade
+    type: GROUNDS_ON
+    purpose: Device, tariff, and eligibility context frames every offer answer.
+    metricKeys: []
+  - dataProductKey: device-and-upgrade
+    type: QUERIES
+    purpose: Reads certified upgrade take rate and device margin.
+    metricKeys:
+    - upgrade_take_rate
+    - device_margin
+- key: install-performance-advisor
+  name: Install Performance Advisor
+  summary: Shows where installs fail first time and how long activation takes, with the capacity picture behind it.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: service-assurance
+  primaryPersonaKey: field-installation-lead
+  questionKeys:
+  - q-install-first-time
+  - q-provisioning-lag
+  - q-cell-headroom
+  bindings:
+  - dataProductKey: field-installations
+    type: GROUNDS_ON
+    purpose: Job, appointment, and provisioning context frames every install answer.
+    metricKeys: []
+  - dataProductKey: field-installations
+    type: QUERIES
+    purpose: Reads certified first-time-right and provisioning lead time.
+    metricKeys:
+    - install_first_time_right
+    - provisioning_lead_time
+  - dataProductKey: spectrum-and-capacity
+    type: QUERIES
+    purpose: Reads certified capacity headroom where an install depends on it.
+    metricKeys:
+    - capacity_headroom
 regulatoryConstraints:
 - key: personal-data-minimisation
   name: Personal data minimisation

@@ -37,9 +37,13 @@ describe("tenant isolation", () => {
       db.agent.findMany({ select: { id: true } }),
     );
 
-    expect(alphaAgents).toHaveLength(1);
-    expect(betaAgents).toHaveLength(1);
-    expect(alphaAgents[0].id).not.toEqual(betaAgents[0].id);
+    // The claim is disjointness, not a count: a seeded workspace carries the
+    // whole pack's portfolio, and how many agents that is may change.
+    expect(alphaAgents.length).toBeGreaterThan(0);
+    expect(betaAgents.length).toBeGreaterThan(0);
+
+    const betaIds = new Set(betaAgents.map((agent) => agent.id));
+    expect(alphaAgents.some((agent) => betaIds.has(agent.id))).toBe(false);
   });
 
   it("returns null for another organisation's row by id", async () => {

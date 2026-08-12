@@ -39,6 +39,30 @@ personas:
   ownedDecisions: Which alerts are escalated to a suspicious activity report and which are closed.
   cadence: Daily
   currentWorkaround: Works an alert queue with no view of which alert types actually convert.
+- key: collections-manager
+  name: Collections Manager
+  kind: BUSINESS
+  ownedDecisions: Which arrears cases get contacted first and which move to forbearance.
+  cadence: Daily
+  currentWorkaround: Works a queue sorted by balance rather than by likelihood of cure.
+- key: payments-operations-lead
+  name: Payments Operations Lead
+  kind: BUSINESS
+  ownedDecisions: When a rail is degraded enough to reroute or pause.
+  cadence: Continuous, with a morning review
+  currentWorkaround: Watches a dashboard of raw counts with no view of what is normal.
+- key: conduct-risk-officer
+  name: Conduct Risk Officer
+  kind: BUSINESS
+  ownedDecisions: Which complaint themes become a remediation programme.
+  cadence: Monthly, reported to committee
+  currentWorkaround: Reads complaint samples and infers the theme by hand.
+- key: deposits-product-owner
+  name: Deposits Product Owner
+  kind: BUSINESS
+  ownedDecisions: Where pricing moves, and which segments are defended.
+  cadence: Weekly
+  currentWorkaround: Compares balance reports across two systems that disagree.
 questionLibrary:
 - key: q-exposure-drift
   personaKey: credit-risk-analyst
@@ -69,6 +93,90 @@ questionLibrary:
     one.
   expectedAnswerShape: Typology list with conversion rate and volume
   metricKey: alert_conversion_rate
+- key: q-complaint-volume
+  personaKey: conduct-risk-officer
+  text: Which products are generating the most complaints?
+  intentClass: comparison
+  consequenceOfNoAnswer: A product problem is read as a service problem.
+  expectedAnswerShape: Product list with complaint volume
+  metricKey: complaint_upheld_rate
+- key: q-rail-volume
+  personaKey: payments-operations-lead
+  text: Which rails are carrying the most volume right now?
+  intentClass: lookup
+  consequenceOfNoAnswer: Capacity decisions are made without knowing where the load is.
+  expectedAnswerShape: Rail list with volume and success
+  metricKey: payment_success_rate
+- key: q-arrears-entry
+  personaKey: collections-manager
+  text: Which segments are entering arrears fastest?
+  intentClass: trend
+  consequenceOfNoAnswer: Early-stage arrears grows before anyone re-plans capacity.
+  expectedAnswerShape: Segment trend with entry rate
+  metricKey: arrears_rate_30dpd
+- key: q-arrears-priority
+  personaKey: collections-manager
+  text: Which arrears cases are most likely to cure with early contact?
+  intentClass: recommendation
+  consequenceOfNoAnswer: Effort goes to the largest balances instead of the reachable ones.
+  expectedAnswerShape: Ranked case list with cure likelihood
+  metricKey: cure_rate
+- key: q-arrears-trend
+  personaKey: collections-manager
+  text: How is thirty-day arrears moving by portfolio?
+  intentClass: trend
+  consequenceOfNoAnswer: A deteriorating book is spotted at quarter end.
+  expectedAnswerShape: Arrears rate trend by portfolio
+  metricKey: arrears_rate_30dpd
+- key: q-payment-failures
+  personaKey: payments-operations-lead
+  text: Which payment rail is failing more than usual today?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: Customers report the outage before operations sees it.
+  expectedAnswerShape: Rail comparison against baseline
+  metricKey: payment_success_rate
+- key: q-settlement-latency
+  personaKey: payments-operations-lead
+  text: Where has settlement latency moved outside its normal range?
+  intentClass: comparison
+  consequenceOfNoAnswer: Slow settlement is absorbed as complaints instead of fixed.
+  expectedAnswerShape: Latency by rail with baseline band
+  metricKey: settlement_latency
+- key: q-complaint-themes
+  personaKey: conduct-risk-officer
+  text: Which complaint themes are being upheld most often?
+  intentClass: trend
+  consequenceOfNoAnswer: Remediation starts after the regulator asks rather than before.
+  expectedAnswerShape: Theme list with uphold rate and volume
+  metricKey: complaint_upheld_rate
+- key: q-remediation-late
+  personaKey: conduct-risk-officer
+  text: Which remediation actions are past their committed date?
+  intentClass: lookup
+  consequenceOfNoAnswer: Committee is told everything is on track until it is not.
+  expectedAnswerShape: Action list with owner and days overdue
+  metricKey: remediation_backlog
+- key: q-deposit-growth
+  personaKey: deposits-product-owner
+  text: Which segments are growing or draining deposits this month?
+  intentClass: trend
+  consequenceOfNoAnswer: Pricing responds to last quarter's picture.
+  expectedAnswerShape: Segment growth with balance movement
+  metricKey: deposit_balance_growth
+- key: q-deposit-attrition
+  personaKey: deposits-product-owner
+  text: Where is deposit attrition concentrated?
+  intentClass: comparison
+  consequenceOfNoAnswer: Retention spend lands on segments that were never leaving.
+  expectedAnswerShape: Attrition by segment and tenure
+  metricKey: deposit_attrition_rate
+- key: q-origination-slow
+  personaKey: credit-risk-analyst
+  text: Where is the approval cycle slowest, and what is holding it?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: Deals are lost to a competitor who answered first.
+  expectedAnswerShape: Stage timings with bottleneck named
+  metricKey: approval_cycle_time
 dataProducts:
 - key: credit-risk-360
   name: Credit Risk 360
@@ -310,6 +418,99 @@ starterAgents:
     metricKeys:
     - probability_of_default
     - exposure_at_default
+- key: collections-priority-advisor
+  name: Collections Priority Advisor
+  summary: Ranks arrears cases by certified cure likelihood so early contact goes where it changes the outcome.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: retail-banking
+  primaryPersonaKey: collections-manager
+  questionKeys:
+  - q-arrears-priority
+  - q-arrears-trend
+  - q-arrears-entry
+  bindings:
+  - dataProductKey: collections-and-arrears
+    type: GROUNDS_ON
+    purpose: Arrears and forbearance status frames every recommendation.
+    metricKeys: []
+  - dataProductKey: collections-and-arrears
+    type: QUERIES
+    purpose: Reads certified arrears and cure metrics.
+    metricKeys:
+    - arrears_rate_30dpd
+    - cure_rate
+- key: payments-health-monitor
+  name: Payments Health Monitor
+  summary: Watches success rate and settlement latency per rail against certified baselines, and says which rail is degraded.
+  archetype: Monitor
+  riskTier: decision-support
+  domainKey: payments
+  primaryPersonaKey: payments-operations-lead
+  questionKeys:
+  - q-payment-failures
+  - q-settlement-latency
+  - q-rail-volume
+  bindings:
+  - dataProductKey: payments-flows
+    type: GROUNDS_ON
+    purpose: Payment rail and corridor context frames every comparison.
+    metricKeys: []
+  - dataProductKey: payments-flows
+    type: QUERIES
+    purpose: Reads certified payment success rate and settlement latency.
+    metricKeys:
+    - payment_success_rate
+    - settlement_latency
+- key: conduct-theme-analyst
+  name: Conduct Theme Analyst
+  summary: Surfaces which complaint themes are upheld and which remediation actions have slipped, from certified conduct metrics.
+  archetype: Analyst
+  riskTier: decision-support
+  domainKey: retail-banking
+  primaryPersonaKey: conduct-risk-officer
+  questionKeys:
+  - q-complaint-themes
+  - q-remediation-late
+  - q-complaint-volume
+  bindings:
+  - dataProductKey: complaints-and-conduct
+    type: GROUNDS_ON
+    purpose: Complaint taxonomy and root-cause context frames every theme.
+    metricKeys: []
+  - dataProductKey: complaints-and-conduct
+    type: QUERIES
+    purpose: Reads certified uphold rate and remediation backlog.
+    metricKeys:
+    - complaint_upheld_rate
+    - remediation_backlog
+- key: deposit-growth-advisor
+  name: Deposit Growth Advisor
+  summary: Explains where deposits are growing or draining, and how fast the approval cycle is turning, from certified metrics.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: retail-banking
+  primaryPersonaKey: deposits-product-owner
+  questionKeys:
+  - q-deposit-growth
+  - q-deposit-attrition
+  - q-origination-slow
+  bindings:
+  - dataProductKey: deposits-and-savings
+    type: GROUNDS_ON
+    purpose: Deposit product and segment context frames every movement.
+    metricKeys: []
+  - dataProductKey: deposits-and-savings
+    type: QUERIES
+    purpose: Reads certified balance growth and attrition.
+    metricKeys:
+    - deposit_balance_growth
+    - deposit_attrition_rate
+  - dataProductKey: lending-origination
+    type: QUERIES
+    purpose: Reads the certified approval cycle time behind the origination view.
+    metricKeys:
+    - approval_cycle_time
 regulatoryConstraints:
 - key: personal-data-minimisation
   name: Personal data minimisation

@@ -39,6 +39,30 @@ personas:
   ownedDecisions: Which incidents are investigated and which improvement work is prioritised.
   cadence: Monthly
   currentWorkaround: Waits for the safety report and asks for cuts of it by hand.
+- key: revenue-cycle-manager
+  name: Revenue Cycle Manager
+  kind: BUSINESS
+  ownedDecisions: Which denial causes get worked, and which payer conversations to open.
+  cadence: Weekly
+  currentWorkaround: Exports a denial report and pivots it by hand every Monday.
+- key: theatre-scheduler
+  name: Theatre Scheduler
+  kind: BUSINESS
+  ownedDecisions: Which lists are moved, and where spare session time goes.
+  cadence: Daily
+  currentWorkaround: Balances a whiteboard against a booking system that disagrees with it.
+- key: workforce-planner
+  name: Workforce Planner
+  kind: BUSINESS
+  ownedDecisions: Where agency spend is authorised and where a vacancy is escalated.
+  cadence: Weekly
+  currentWorkaround: Reconciles roster exports with a finance ledger a fortnight behind.
+- key: population-health-lead
+  name: Population Health Lead
+  kind: BUSINESS
+  ownedDecisions: Which cohorts get proactive outreach this quarter.
+  cadence: Quarterly
+  currentWorkaround: Waits for an analyst to rebuild a stratification model by request.
 questionLibrary:
 - key: q-wait-trend
   personaKey: service-manager
@@ -68,6 +92,90 @@ questionLibrary:
   consequenceOfNoAnswer: Improvement work goes where it is easiest rather than where harm is.
   expectedAnswerShape: Specialty list with readmission rate against expectation
   metricKey: readmission_rate
+- key: q-cohort-trend
+  personaKey: population-health-lead
+  text: How is cohort risk moving since the last review?
+  intentClass: trend
+  consequenceOfNoAnswer: A cohort deteriorates between quarterly reviews.
+  expectedAnswerShape: Cohort trend with risk score
+  metricKey: risk_stratification_score
+- key: q-theatre-trend
+  personaKey: theatre-scheduler
+  text: How is theatre utilisation trending by specialty?
+  intentClass: trend
+  consequenceOfNoAnswer: Utilisation drifts down a percentage point at a time.
+  expectedAnswerShape: Specialty trend with utilisation
+  metricKey: theatre_utilisation
+- key: q-denial-payer
+  personaKey: revenue-cycle-manager
+  text: Which payers deny most often on first pass?
+  intentClass: comparison
+  consequenceOfNoAnswer: Payer conversations open without evidence.
+  expectedAnswerShape: Payer list with denial rate
+  metricKey: denial_rate
+- key: q-denial-causes
+  personaKey: revenue-cycle-manager
+  text: Which denial reasons are costing the most this month?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: The same denial reason is reworked every month instead of fixed.
+  expectedAnswerShape: Reason list with value and payer
+  metricKey: denial_rate
+- key: q-cash-lag
+  personaKey: revenue-cycle-manager
+  text: Where is cash taking longest to arrive?
+  intentClass: trend
+  consequenceOfNoAnswer: Working capital is managed by overdraft rather than by cause.
+  expectedAnswerShape: Days in AR by service line
+  metricKey: days_in_ar
+- key: q-theatre-gaps
+  personaKey: theatre-scheduler
+  text: Where is theatre time going unused this week?
+  intentClass: lookup
+  consequenceOfNoAnswer: Sessions are lost that a waiting patient could have used.
+  expectedAnswerShape: Session list with unused minutes
+  metricKey: theatre_utilisation
+- key: q-cancellations
+  personaKey: theatre-scheduler
+  text: Which specialties are cancelling most on the day, and why?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: Cancellations are treated as bad luck rather than as a pattern.
+  expectedAnswerShape: Specialty list with cancellation cause
+  metricKey: cancellation_rate
+- key: q-agency-spend
+  personaKey: workforce-planner
+  text: Where is agency use highest relative to establishment?
+  intentClass: comparison
+  consequenceOfNoAnswer: Agency spend is approved ward by ward with no view of the whole.
+  expectedAnswerShape: Ward comparison with agency share
+  metricKey: agency_hours_share
+- key: q-vacancy-hotspots
+  personaKey: workforce-planner
+  text: Which services carry the deepest vacancy gap?
+  intentClass: lookup
+  consequenceOfNoAnswer: Recruitment effort spreads evenly across uneven need.
+  expectedAnswerShape: Service list with vacancy rate
+  metricKey: vacancy_rate
+- key: q-cohort-risk
+  personaKey: population-health-lead
+  text: Which cohorts carry the highest risk of unplanned admission?
+  intentClass: forecast
+  consequenceOfNoAnswer: Outreach goes to whoever was in hospital last, not who is next.
+  expectedAnswerShape: Cohort ranking with risk score
+  metricKey: risk_stratification_score
+- key: q-avoidable-admissions
+  personaKey: population-health-lead
+  text: Where are avoidable admissions concentrated?
+  intentClass: comparison
+  consequenceOfNoAnswer: Prevention money lands where the noise is, not the need.
+  expectedAnswerShape: Rate by cohort and locality
+  metricKey: avoidable_admission_rate
+- key: q-diagnostic-backlog
+  personaKey: service-manager
+  text: Which diagnostic backlogs are growing fastest?
+  intentClass: trend
+  consequenceOfNoAnswer: A backlog becomes a breach before anyone escalates it.
+  expectedAnswerShape: Modality trend with backlog count
+  metricKey: backlog_over_six_weeks
 dataProducts:
 - key: patient-flow-360
   name: Patient Flow 360
@@ -302,6 +410,99 @@ starterAgents:
     metricKeys:
     - pathway_wait_days
     - clinic_utilisation
+- key: denial-cause-analyst
+  name: Denial Cause Analyst
+  summary: Explains which denial reasons cost the most and where cash is slowest, from certified revenue-cycle metrics.
+  archetype: Analyst
+  riskTier: decision-support
+  domainKey: revenue-cycle
+  primaryPersonaKey: revenue-cycle-manager
+  questionKeys:
+  - q-denial-causes
+  - q-cash-lag
+  - q-denial-payer
+  bindings:
+  - dataProductKey: revenue-cycle-360
+    type: GROUNDS_ON
+    purpose: Claim, payer, and service-line context frames every denial answer.
+    metricKeys: []
+  - dataProductKey: revenue-cycle-360
+    type: QUERIES
+    purpose: Reads certified denial rate and days in accounts receivable.
+    metricKeys:
+    - denial_rate
+    - days_in_ar
+- key: theatre-utilisation-advisor
+  name: Theatre Utilisation Advisor
+  summary: Shows where theatre time is going unused and which specialties cancel on the day, from certified metrics.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: patient-flow
+  primaryPersonaKey: theatre-scheduler
+  questionKeys:
+  - q-theatre-gaps
+  - q-cancellations
+  - q-theatre-trend
+  bindings:
+  - dataProductKey: theatre-utilisation
+    type: GROUNDS_ON
+    purpose: Session, list, and specialty context frames every scheduling answer.
+    metricKeys: []
+  - dataProductKey: theatre-utilisation
+    type: QUERIES
+    purpose: Reads certified theatre utilisation and cancellation rate.
+    metricKeys:
+    - theatre_utilisation
+    - cancellation_rate
+- key: workforce-gap-monitor
+  name: Workforce Gap Monitor
+  summary: Watches agency use and vacancy depth across rosters, so escalation lands where the gap actually is.
+  archetype: Monitor
+  riskTier: informational
+  domainKey: workforce
+  primaryPersonaKey: workforce-planner
+  questionKeys:
+  - q-agency-spend
+  - q-vacancy-hotspots
+  - q-diagnostic-backlog
+  bindings:
+  - dataProductKey: workforce-rostering
+    type: GROUNDS_ON
+    purpose: Roster and establishment context frames every staffing comparison.
+    metricKeys: []
+  - dataProductKey: workforce-rostering
+    type: QUERIES
+    purpose: Reads certified agency share and vacancy rate.
+    metricKeys:
+    - agency_hours_share
+    - vacancy_rate
+  - dataProductKey: diagnostics-turnaround
+    type: QUERIES
+    purpose: Reads the certified diagnostic backlog behind the demand picture.
+    metricKeys:
+    - backlog_over_six_weeks
+- key: population-risk-navigator
+  name: Population Risk Navigator
+  summary: Points a population health lead at the cohorts carrying the most avoidable admissions, with the certified risk behind each.
+  archetype: Navigator
+  riskTier: decision-support
+  domainKey: population-health
+  primaryPersonaKey: population-health-lead
+  questionKeys:
+  - q-cohort-risk
+  - q-avoidable-admissions
+  - q-cohort-trend
+  bindings:
+  - dataProductKey: population-risk
+    type: GROUNDS_ON
+    purpose: Cohort definitions and registered population frame every ranking.
+    metricKeys: []
+  - dataProductKey: population-risk
+    type: QUERIES
+    purpose: Reads certified risk stratification and avoidable admission rate.
+    metricKeys:
+    - risk_stratification_score
+    - avoidable_admission_rate
 regulatoryConstraints:
 - key: personal-data-minimisation
   name: Personal data minimisation

@@ -58,6 +58,24 @@ personas:
   ownedDecisions: Which meter-read pipelines are paused and which incidents are escalated.
   cadence: Daily
   currentWorkaround: Reads alert channels and checks read-completeness dashboards manually.
+- key: asset-investment-planner
+  name: Asset Investment Planner
+  kind: BUSINESS
+  ownedDecisions: Which assets are replaced this year and which are held for another cycle.
+  cadence: Quarterly, against the regulatory settlement
+  currentWorkaround: Ranks assets in a spreadsheet from a condition export that is six weeks old.
+- key: trading-desk-lead
+  name: Trading Desk Lead
+  kind: BUSINESS
+  ownedDecisions: How much of tomorrow's forecast demand is hedged, and at what price.
+  cadence: Daily, before market close
+  currentWorkaround: Reconciles position reports against a demand forecast that arrives by email.
+- key: sustainability-lead
+  name: Sustainability Lead
+  kind: BUSINESS
+  ownedDecisions: What is published in the annual report, and which reduction claims can be defended.
+  cadence: Monthly, with a hard annual deadline
+  currentWorkaround: Rebuilds the emissions position from three systems each reporting cycle.
 questionLibrary:
 - key: q-churn-rising
   personaKey: revenue-assurance-analyst
@@ -103,6 +121,90 @@ questionLibrary:
   consequenceOfNoAnswer: Estimated bills go out, and the complaints arrive three weeks later.
   expectedAnswerShape: Route list with read completeness against threshold
   metricKey: read_completeness
+- key: q-hedge-trend
+  personaKey: trading-desk-lead
+  text: How has hedge coverage moved across the last month?
+  intentClass: trend
+  consequenceOfNoAnswer: A drifting hedge position is noticed at settlement.
+  expectedAnswerShape: Coverage trend by delivery period
+  metricKey: hedge_coverage_ratio
+- key: q-asset-criticality
+  personaKey: asset-investment-planner
+  text: Which critical assets are in the worst condition right now?
+  intentClass: lookup
+  consequenceOfNoAnswer: A critical asset fails before it reaches a replacement list.
+  expectedAnswerShape: Asset list with health and criticality
+  metricKey: asset_health_index
+- key: q-jobs-missed
+  personaKey: field-operations-lead
+  text: Which jobs missed their appointment window yesterday, and why?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: The same round gets booked the same way tomorrow.
+  expectedAnswerShape: Job list with cause and crew
+  metricKey: appointment_adherence
+- key: q-first-time-fix
+  personaKey: field-operations-lead
+  text: Where is first-time fix falling, by patch and job type?
+  intentClass: trend
+  consequenceOfNoAnswer: Repeat visits absorb capacity nobody planned for.
+  expectedAnswerShape: Trend by patch with job type breakdown
+  metricKey: first_time_fix_rate
+- key: q-attend-time
+  personaKey: field-operations-lead
+  text: How long are we taking to attend high-priority jobs?
+  intentClass: trend
+  consequenceOfNoAnswer: Priority jobs quietly become the same as everything else.
+  expectedAnswerShape: Median hours by priority and week
+  metricKey: mean_time_to_attend
+- key: q-asset-replace
+  personaKey: asset-investment-planner
+  text: Which assets should be replaced first this year?
+  intentClass: recommendation
+  consequenceOfNoAnswer: Replacement money goes to whatever failed most recently.
+  expectedAnswerShape: Ranked asset list with health and criticality
+  metricKey: replacement_priority_score
+- key: q-asset-decline
+  personaKey: asset-investment-planner
+  text: Which asset classes are deteriorating fastest?
+  intentClass: trend
+  consequenceOfNoAnswer: Deterioration is noticed at failure rather than in planning.
+  expectedAnswerShape: Health index trend by asset class
+  metricKey: asset_health_index
+- key: q-hedge-cover
+  personaKey: trading-desk-lead
+  text: How much of tomorrow's forecast demand is hedged?
+  intentClass: lookup
+  consequenceOfNoAnswer: The desk goes into delivery exposed without knowing it.
+  expectedAnswerShape: Coverage percentage by delivery period
+  metricKey: hedge_coverage_ratio
+- key: q-imbalance-cost
+  personaKey: trading-desk-lead
+  text: What did imbalance cost us last week, and where?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: Forecast error keeps costing money nobody attributes.
+  expectedAnswerShape: Cost by settlement period with driver
+  metricKey: imbalance_cost
+- key: q-submission-late
+  personaKey: regulatory-reporting-manager
+  text: Which statutory submissions are at risk of missing their deadline?
+  intentClass: forecast
+  consequenceOfNoAnswer: A missed filing is discovered by the regulator, not by us.
+  expectedAnswerShape: Submission list with days to deadline
+  metricKey: submission_timeliness_rate
+- key: q-emissions-trend
+  personaKey: sustainability-lead
+  text: How are scope 2 emissions tracking against the reduction plan?
+  intentClass: trend
+  consequenceOfNoAnswer: The annual claim is assembled from numbers nobody has checked.
+  expectedAnswerShape: Monthly emissions against plan
+  metricKey: scope_two_emissions
+- key: q-renewable-share
+  personaKey: sustainability-lead
+  text: What share of supplied energy was certified renewable this month?
+  intentClass: lookup
+  consequenceOfNoAnswer: A published figure ends up resting on an estimate.
+  expectedAnswerShape: Percentage by supply region with source
+  metricKey: renewable_share
 dataProducts:
 - key: customer-360
   name: Customer 360
@@ -379,6 +481,100 @@ starterAgents:
     metricKeys:
     - residential_churn_rate
     - high_bill_risk
+- key: field-dispatch-advisor
+  name: Field Dispatch Advisor
+  summary: Tells a field operations lead which jobs slipped and where first-time fix is falling, from certified job metrics.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: field-services
+  primaryPersonaKey: field-operations-lead
+  questionKeys:
+  - q-jobs-missed
+  - q-first-time-fix
+  - q-attend-time
+  bindings:
+  - dataProductKey: field-service-operations
+    type: GROUNDS_ON
+    purpose: Field Service Operations frames every answer in job, crew, and appointment terms.
+    metricKeys: []
+  - dataProductKey: field-service-operations
+    type: QUERIES
+    purpose: Reads certified appointment adherence, first-time fix, and attendance metrics.
+    metricKeys:
+    - appointment_adherence
+    - first_time_fix_rate
+    - mean_time_to_attend
+- key: asset-investment-analyst
+  name: Asset Investment Analyst
+  summary: Ranks assets for replacement against certified health and criticality, so investment argues from the register rather than from memory.
+  archetype: Analyst
+  riskTier: decision-support
+  domainKey: asset-management
+  primaryPersonaKey: asset-investment-planner
+  questionKeys:
+  - q-asset-replace
+  - q-asset-decline
+  - q-asset-criticality
+  bindings:
+  - dataProductKey: asset-health-register
+    type: GROUNDS_ON
+    purpose: The asset register provides the condition and criticality context for every ranking.
+    metricKeys: []
+  - dataProductKey: asset-health-register
+    type: QUERIES
+    purpose: Reads certified asset health and replacement priority scores.
+    metricKeys:
+    - asset_health_index
+    - replacement_priority_score
+- key: hedge-position-monitor
+  name: Hedge Position Monitor
+  summary: Watches hedge coverage and imbalance cost against the certified trading book, and says when tomorrow looks exposed.
+  archetype: Monitor
+  riskTier: decision-support
+  domainKey: energy-trading
+  primaryPersonaKey: trading-desk-lead
+  questionKeys:
+  - q-hedge-cover
+  - q-imbalance-cost
+  - q-hedge-trend
+  bindings:
+  - dataProductKey: energy-trading-positions
+    type: GROUNDS_ON
+    purpose: The trading book provides position and delivery-period context.
+    metricKeys: []
+  - dataProductKey: energy-trading-positions
+    type: QUERIES
+    purpose: Reads certified hedge coverage and imbalance cost.
+    metricKeys:
+    - hedge_coverage_ratio
+    - imbalance_cost
+- key: sustainability-reporting-analyst
+  name: Sustainability Reporting Analyst
+  summary: Assembles the emissions and renewable position from certified metrics, so a published claim can be traced to its source.
+  archetype: Analyst
+  riskTier: informational
+  domainKey: sustainability
+  primaryPersonaKey: sustainability-lead
+  questionKeys:
+  - q-emissions-trend
+  - q-renewable-share
+  - q-submission-late
+  bindings:
+  - dataProductKey: sustainability-emissions
+    type: GROUNDS_ON
+    purpose: Emissions reporting provides the entity and period context for every figure.
+    metricKeys: []
+  - dataProductKey: sustainability-emissions
+    type: QUERIES
+    purpose: Reads certified scope 2 emissions and renewable share.
+    metricKeys:
+    - scope_two_emissions
+    - renewable_share
+  - dataProductKey: regulatory-submissions
+    type: QUERIES
+    purpose: Reads submission timeliness so a reporting deadline is visible before it is missed.
+    metricKeys:
+    - submission_timeliness_rate
 regulatoryConstraints:
 - key: personal-data-minimisation
   name: Personal data minimisation

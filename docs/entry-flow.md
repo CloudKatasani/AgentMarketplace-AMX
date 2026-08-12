@@ -64,6 +64,26 @@ that and points at the form.
 
 ## The catalogue's breadth
 
+Every pack now ships **five starter agents** and **nine or ten data products**.
+
+Each agent carries the persona whose decisions it serves, at least three
+catalogued questions, and bindings onto certified metrics that exist in the same
+pack — a churn advisor and a field dispatch advisor for utilities, collections
+and payments and conduct for banking, theatre utilisation and population risk
+for healthcare, and so on. Three rules held while authoring them, and a test
+enforces each: every question names a metric that exists, every `QUERIES`
+binding names certified metrics while `GROUNDS_ON` names none, and the risk tier
+is chosen rather than defaulted.
+
+A new workspace gets the same portfolio. The first agent arrives mid-lifecycle
+at Stage 3, bound and covered, exactly as before; **the rest arrive as drafts** —
+persona and questions registered, Stage 1, status `DRAFT`, and nothing else. No
+bindings and no charter, deliberately: a binding is a design decision and a
+charter is a commitment, and seeding either would put words in somebody's mouth.
+A workspace showing one agent while the industry catalogue advertises five was
+lying by omission; a draft is the honest version of "the pack suggests this one
+too".
+
 Each pack shipped with two or three data products — enough to seed a starter
 agent, not enough to browse. Every pack now carries **nine or ten**, across its
 own declared domains, each with certified metrics at a stated grain: field
@@ -71,7 +91,7 @@ service, asset health, trading positions and emissions for utilities; capital
 and liquidity, payments flows and collections for banking; theatre utilisation,
 diagnostics turnaround and population risk for healthcare, and so on.
 
-`scripts/expand-packs.mjs` authored them and stays in the repository: the next
+`scripts/expand-packs.mjs` and `scripts/expand-pack-agents.mjs` authored them and stay in the repository: the next
 person adding a pack wants the shape, and the diff is easier to review against
 the generator than against nine YAML files. A test asserts the floor — at least
 eight products per pack, every product in a domain the pack declares, and metric

@@ -379,6 +379,11 @@ async function seedFromPack(
     payload: { slug: agent.slug, source: "starter-workspace", pack: pack.key },
   });
 
+  // ── The rest of the pack's agents, as drafts ──
+  for (const candidate of pack.starterAgents.slice(1)) {
+    await seedDraftAgent(db, input, pack, candidate);
+  }
+
   return {
     agentId: agent.id,
     agentSlug: agent.slug,
@@ -386,6 +391,132 @@ async function seedFromPack(
     dataProductIds,
     metricIds,
   };
+}
+
+/**
+ * The pack's other agents, as honest drafts.
+ *
+ * A workspace that shows one agent while the industry catalogue shows five is
+ * lying by omission about what the pack contains. So the rest arrive too — with
+ * their persona and their catalogued questions, at Stage 1, status DRAFT, and
+ * nothing else.
+ *
+ * Deliberately no bindings, no charter, no artifacts. A binding is a design
+ * decision and a charter is a commitment; seeding either would put words in
+ * somebody's mouth and hand them a Stage 2 approval they never made. What a
+ * draft gives them is the part that is genuinely reusable — the persona and the
+ * questions — and a stage that is ready to be worked.
+ */
+async function seedDraftAgent(
+  db: AmxPrismaClient,
+  input: StarterSeedInput,
+  pack: Pack,
+  candidate: Pack["starterAgents"][number],
+): Promise<void> {
+  const domain = await db.domain.findFirst({
+    where: { industryId: pack.key, key: candidate.domainKey },
+    select: { id: true },
+  });
+
+  const existing = await db.agent.findFirst({
+    where: { workspaceId: input.workspaceId, slug: candidate.key },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  const agent = await db.agent.create({
+    data: {
+      organizationId: input.organizationId,
+      workspaceId: input.workspaceId,
+      domainId: domain?.id ?? null,
+      slug: candidate.key,
+      name: candidate.name,
+      summary: candidate.summary,
+      archetype: candidate.archetype,
+      riskTier: candidate.riskTier,
+      ownerUserId: input.ownerUserId,
+      currentStageId: "1-consumption-discovery",
+      status: "DRAFT",
+      certification: "NONE",
+    },
+    select: { id: true },
+  });
+
+  const personaKeys = new Set<string>([candidate.primaryPersonaKey]);
+  for (const questionKey of candidate.questionKeys) {
+    const question = pack.questionLibrary.find((q) => q.key === questionKey);
+    if (question) personaKeys.add(question.personaKey);
+  }
+
+  const personaIds: Record<string, string> = {};
+  for (const personaKey of personaKeys) {
+    const persona = pack.personas.find((p) => p.key === personaKey);
+    if (!persona) continue;
+
+    const created = await db.persona.upsert({
+      where: {
+        organizationId_workspaceId_key: {
+          organizationId: input.organizationId,
+          workspaceId: input.workspaceId,
+          key: persona.key,
+        },
+      },
+      update: {},
+      create: {
+        organizationId: input.organizationId,
+        workspaceId: input.workspaceId,
+        key: persona.key,
+        name: persona.name,
+        kind: persona.kind,
+        ownedDecisions: persona.ownedDecisions,
+        cadence: persona.cadence,
+        currentWorkaround: persona.currentWorkaround,
+        packSourceKey: `${pack.key}:${persona.key}`,
+      },
+      select: { id: true },
+    });
+    personaIds[persona.key] = created.id;
+
+    await db.agentPersona.upsert({
+      where: { agentId_personaId: { agentId: agent.id, personaId: created.id } },
+      update: {},
+      create: {
+        organizationId: input.organizationId,
+        agentId: agent.id,
+        personaId: created.id,
+        isPrimary: persona.key === candidate.primaryPersonaKey,
+      },
+    });
+  }
+
+  for (const [index, questionKey] of candidate.questionKeys.entries()) {
+    const question = pack.questionLibrary.find((q) => q.key === questionKey);
+    const personaId = question ? personaIds[question.personaKey] : undefined;
+    if (!question || !personaId) continue;
+
+    await db.question.create({
+      data: {
+        organizationId: input.organizationId,
+        agentId: agent.id,
+        personaId,
+        text: question.text,
+        intentClass: question.intentClass,
+        consequenceOfNoAnswer: question.consequenceOfNoAnswer,
+        expectedAnswerShape: question.expectedAnswerShape,
+        priority: index,
+        packSourceKey: question.key,
+      },
+    });
+  }
+
+  await appendAuditEvent(db, {
+    organizationId: input.organizationId,
+    type: "agent.created",
+    subjectType: "Agent",
+    subjectId: agent.id,
+    actorUserId: input.ownerUserId,
+    payload: { slug: candidate.key, source: "starter-workspace-draft", pack: pack.key },
+  });
 }
 
 const SENSITIVITY_ORDER = ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"];

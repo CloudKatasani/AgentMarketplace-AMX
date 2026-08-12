@@ -39,6 +39,30 @@ personas:
   ownedDecisions: Which risks are accepted, loaded, or declined, and where the guidelines need changing.
   cadence: Weekly
   currentWorkaround: Samples bound policies and compares them to guidelines by hand.
+- key: fraud-investigations-lead
+  name: Fraud Investigations Lead
+  kind: BUSINESS
+  ownedDecisions: Which claims are referred to investigation and which are released.
+  cadence: Daily
+  currentWorkaround: Reviews a referral queue with no view of which referral types pay off.
+- key: pricing-actuary
+  name: Pricing Actuary
+  kind: BUSINESS
+  ownedDecisions: Where rate is adequate and where it is corrected at renewal.
+  cadence: Monthly
+  currentWorkaround: Reruns a rate adequacy model against extracts that arrive late.
+- key: distribution-manager
+  name: Distribution Manager
+  kind: BUSINESS
+  ownedDecisions: Which brokers get support, and where new business appetite goes.
+  cadence: Weekly
+  currentWorkaround: Reads separate broker reports and reconciles names by hand.
+- key: retention-lead
+  name: Retention Lead
+  kind: BUSINESS
+  ownedDecisions: Which renewals get intervention and at what price.
+  cadence: Weekly
+  currentWorkaround: Works a lapse list produced after the renewal invitation has gone out.
 questionLibrary:
 - key: q-severity-trend
   personaKey: claims-team-lead
@@ -68,6 +92,90 @@ questionLibrary:
   consequenceOfNoAnswer: Unprofitable business is renewed for another year.
   expectedAnswerShape: Segment list with loss ratio against appetite
   metricKey: loss_ratio
+- key: q-channel-mix
+  personaKey: distribution-manager
+  text: How is new business split across channels this quarter?
+  intentClass: lookup
+  consequenceOfNoAnswer: Channel investment follows habit rather than mix.
+  expectedAnswerShape: Channel split with conversion
+  metricKey: new_business_conversion
+- key: q-rate-trend
+  personaKey: pricing-actuary
+  text: How has rate adequacy moved since the last review?
+  intentClass: trend
+  consequenceOfNoAnswer: Adequacy erodes quietly between annual reviews.
+  expectedAnswerShape: Adequacy trend by segment
+  metricKey: rate_adequacy
+- key: q-referral-outcome
+  personaKey: fraud-investigations-lead
+  text: How long are investigations taking to reach an outcome?
+  intentClass: trend
+  consequenceOfNoAnswer: Cases age in the queue and the claim pays anyway.
+  expectedAnswerShape: Outcome time by referral type
+  metricKey: referral_rate
+- key: q-referral-value
+  personaKey: fraud-investigations-lead
+  text: Which referral types are actually converting to a save?
+  intentClass: comparison
+  consequenceOfNoAnswer: Investigation capacity is spent on referral types that never pay.
+  expectedAnswerShape: Referral type list with save ratio
+  metricKey: fraud_save_ratio
+- key: q-referral-volume
+  personaKey: fraud-investigations-lead
+  text: Where is referral volume rising fastest?
+  intentClass: trend
+  consequenceOfNoAnswer: A new fraud pattern is seen only once it is expensive.
+  expectedAnswerShape: Referral rate trend by product
+  metricKey: referral_rate
+- key: q-rate-adequacy
+  personaKey: pricing-actuary
+  text: Which segments are charging below technical price?
+  intentClass: comparison
+  consequenceOfNoAnswer: Loss-making segments grow because they are the easiest to win.
+  expectedAnswerShape: Segment list with adequacy ratio
+  metricKey: rate_adequacy
+- key: q-quote-conversion
+  personaKey: pricing-actuary
+  text: Where is quote-to-bind falling after a rate change?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: A rate correction quietly costs more volume than it was worth.
+  expectedAnswerShape: Segment conversion before and after
+  metricKey: quote_to_bind_ratio
+- key: q-broker-retention
+  personaKey: distribution-manager
+  text: Which brokers have stopped producing?
+  intentClass: lookup
+  consequenceOfNoAnswer: A broker relationship is discovered lost at the annual review.
+  expectedAnswerShape: Broker list with last production date
+  metricKey: broker_retention_rate
+- key: q-new-business
+  personaKey: distribution-manager
+  text: Where is new business converting best this quarter?
+  intentClass: comparison
+  consequenceOfNoAnswer: Appetite is directed by anecdote from the last conversation.
+  expectedAnswerShape: Channel and product conversion
+  metricKey: new_business_conversion
+- key: q-lapse-risk
+  personaKey: retention-lead
+  text: Which renewals are most likely to lapse next month?
+  intentClass: forecast
+  consequenceOfNoAnswer: Intervention arrives after the customer has already left.
+  expectedAnswerShape: Policy list with lapse likelihood
+  metricKey: policy_lapse_rate
+- key: q-renewal-uplift
+  personaKey: retention-lead
+  text: How much uplift are we applying to retained policies?
+  intentClass: trend
+  consequenceOfNoAnswer: Retention is bought with margin nobody measured.
+  expectedAnswerShape: Uplift trend by product
+  metricKey: renewal_premium_uplift
+- key: q-repair-cycle
+  personaKey: claims-team-lead
+  text: Which repairers are slowest to close a claim?
+  intentClass: comparison
+  consequenceOfNoAnswer: Cycle time is blamed on volume rather than on the network.
+  expectedAnswerShape: Supplier list with cycle time
+  metricKey: repair_cycle_time
 dataProducts:
 - key: claims-360
   name: Claims 360
@@ -302,6 +410,99 @@ starterAgents:
     metricKeys:
     - average_claim_severity
     - claim_cycle_time
+- key: fraud-referral-advisor
+  name: Fraud Referral Advisor
+  summary: Shows which referral types convert to a save and where referral volume is moving, from certified counter-fraud metrics.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: fraud
+  primaryPersonaKey: fraud-investigations-lead
+  questionKeys:
+  - q-referral-value
+  - q-referral-volume
+  - q-referral-outcome
+  bindings:
+  - dataProductKey: fraud-signals
+    type: GROUNDS_ON
+    purpose: Referral, typology, and disposition context frames every answer.
+    metricKeys: []
+  - dataProductKey: fraud-signals
+    type: QUERIES
+    purpose: Reads certified referral rate and fraud save ratio.
+    metricKeys:
+    - referral_rate
+    - fraud_save_ratio
+- key: rate-adequacy-analyst
+  name: Rate Adequacy Analyst
+  summary: Explains where charged premium sits against technical price, and what a rate change did to conversion.
+  archetype: Analyst
+  riskTier: decision-support
+  domainKey: underwriting
+  primaryPersonaKey: pricing-actuary
+  questionKeys:
+  - q-rate-adequacy
+  - q-quote-conversion
+  - q-rate-trend
+  bindings:
+  - dataProductKey: pricing-and-rating
+    type: GROUNDS_ON
+    purpose: Segment and rating-factor context frames every adequacy answer.
+    metricKeys: []
+  - dataProductKey: pricing-and-rating
+    type: QUERIES
+    purpose: Reads certified rate adequacy and quote-to-bind ratio.
+    metricKeys:
+    - rate_adequacy
+    - quote_to_bind_ratio
+- key: distribution-performance-navigator
+  name: Distribution Performance Navigator
+  summary: Points a distribution manager at brokers who stopped producing and channels converting best, from certified metrics.
+  archetype: Navigator
+  riskTier: informational
+  domainKey: distribution
+  primaryPersonaKey: distribution-manager
+  questionKeys:
+  - q-broker-retention
+  - q-new-business
+  - q-channel-mix
+  bindings:
+  - dataProductKey: distribution-performance
+    type: GROUNDS_ON
+    purpose: Channel, broker, and product context frames every comparison.
+    metricKeys: []
+  - dataProductKey: distribution-performance
+    type: QUERIES
+    purpose: Reads certified broker retention and new business conversion.
+    metricKeys:
+    - broker_retention_rate
+    - new_business_conversion
+- key: renewal-retention-advisor
+  name: Renewal Retention Advisor
+  summary: Ranks renewals by certified lapse behaviour and shows what uplift retention is costing, before the invitation goes out.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: distribution
+  primaryPersonaKey: retention-lead
+  questionKeys:
+  - q-lapse-risk
+  - q-renewal-uplift
+  - q-repair-cycle
+  bindings:
+  - dataProductKey: policy-retention
+    type: GROUNDS_ON
+    purpose: In-force policy and renewal-cycle context frames every recommendation.
+    metricKeys: []
+  - dataProductKey: policy-retention
+    type: QUERIES
+    purpose: Reads certified lapse rate and renewal uplift.
+    metricKeys:
+    - policy_lapse_rate
+    - renewal_premium_uplift
+  - dataProductKey: claims-supply-chain
+    type: QUERIES
+    purpose: Reads certified repair cycle time where a claim experience drives the renewal.
+    metricKeys:
+    - repair_cycle_time
 regulatoryConstraints:
 - key: personal-data-minimisation
   name: Personal data minimisation

@@ -39,6 +39,30 @@ personas:
   ownedDecisions: Which batches are held, released, or investigated.
   cadence: Daily
   currentWorkaround: Chases lab results and correlates them to process data by hand.
+- key: maintenance-planner
+  name: Maintenance Planner
+  kind: BUSINESS
+  ownedDecisions: Which assets get planned downtime and when.
+  cadence: Weekly
+  currentWorkaround: Plans from a failure log that is only updated after the shift.
+- key: supply-chain-manager
+  name: Supply Chain Manager
+  kind: BUSINESS
+  ownedDecisions: Which suppliers get expedited and where buffer stock sits.
+  cadence: Daily
+  currentWorkaround: Chases suppliers from an order book with no reliability history.
+- key: ehs-manager
+  name: EHS Manager
+  kind: BUSINESS
+  ownedDecisions: Where a safety intervention goes next.
+  cadence: Weekly, escalating immediately on incident
+  currentWorkaround: Counts incidents in a spreadsheet with no leading indicator.
+- key: production-scheduler
+  name: Production Scheduler
+  kind: BUSINESS
+  ownedDecisions: Which orders run in which sequence this week.
+  cadence: Daily
+  currentWorkaround: Re-sequences by hand whenever a changeover overruns.
 questionLibrary:
 - key: q-oee-trend
   personaKey: plant-manager
@@ -69,6 +93,90 @@ questionLibrary:
   consequenceOfNoAnswer: Rework is absorbed as normal cost and never investigated.
   expectedAnswerShape: Line list with yield against target
   metricKey: first_pass_yield
+- key: q-line-sequence
+  personaKey: production-scheduler
+  text: Which lines lose the most time to sequencing?
+  intentClass: comparison
+  consequenceOfNoAnswer: Sequencing losses are absorbed as normal running.
+  expectedAnswerShape: Line list with lost minutes
+  metricKey: changeover_time
+- key: q-incident-severity
+  personaKey: ehs-manager
+  text: Which incident types are most severe, not just most frequent?
+  intentClass: comparison
+  consequenceOfNoAnswer: Attention follows frequency and misses severity.
+  expectedAnswerShape: Incident type with severity mix
+  metricKey: recordable_incident_rate
+- key: q-downtime-cause
+  personaKey: maintenance-planner
+  text: Which failure modes cause the most unplanned downtime?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: Maintenance treats symptoms and the mode repeats.
+  expectedAnswerShape: Failure mode list with downtime
+  metricKey: mean_time_between_failures
+- key: q-failure-pattern
+  personaKey: maintenance-planner
+  text: Which asset classes are failing most between planned services?
+  intentClass: trend
+  consequenceOfNoAnswer: Planned maintenance stays on a calendar that reality left behind.
+  expectedAnswerShape: Asset class list with MTBF trend
+  metricKey: mean_time_between_failures
+- key: q-planned-ratio
+  personaKey: maintenance-planner
+  text: How much of our maintenance is still reactive?
+  intentClass: comparison
+  consequenceOfNoAnswer: Reactive work is normalised as how the plant runs.
+  expectedAnswerShape: Planned share by plant and month
+  metricKey: planned_maintenance_ratio
+- key: q-supplier-late
+  personaKey: supply-chain-manager
+  text: Which suppliers are missing their delivery windows?
+  intentClass: lookup
+  consequenceOfNoAnswer: Expediting is triggered by whoever shouts, not by who slips.
+  expectedAnswerShape: Supplier list with on-time rate
+  metricKey: supplier_on_time_delivery
+- key: q-otif
+  personaKey: supply-chain-manager
+  text: Where are we failing on-time-in-full to customers?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: A customer escalation is the first sign of a supply problem.
+  expectedAnswerShape: Customer list with OTIF and cause
+  metricKey: otif_rate
+- key: q-incident-rate
+  personaKey: ehs-manager
+  text: How is the recordable incident rate moving by site?
+  intentClass: trend
+  consequenceOfNoAnswer: Safety performance is reported annually and managed never.
+  expectedAnswerShape: Site trend with incident rate
+  metricKey: recordable_incident_rate
+- key: q-near-miss
+  personaKey: ehs-manager
+  text: Which sites report the fewest near misses relative to size?
+  intentClass: comparison
+  consequenceOfNoAnswer: Silence is read as safety rather than as under-reporting.
+  expectedAnswerShape: Site comparison with near-miss rate
+  metricKey: near_miss_rate
+- key: q-schedule-slip
+  personaKey: production-scheduler
+  text: Where is schedule adherence slipping, and after which changeover?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: The sequence is blamed instead of the changeover that broke it.
+  expectedAnswerShape: Line list with adherence and changeover
+  metricKey: schedule_adherence
+- key: q-changeover-cost
+  personaKey: production-scheduler
+  text: Which changeovers are costing the most minutes?
+  intentClass: comparison
+  consequenceOfNoAnswer: Sequencing rules stay as they were written years ago.
+  expectedAnswerShape: Changeover pairs with lost minutes
+  metricKey: changeover_time
+- key: q-supplier-quality
+  personaKey: quality-engineer
+  text: Which suppliers are sending the most defects?
+  intentClass: comparison
+  consequenceOfNoAnswer: Defects are absorbed on the line rather than raised with the supplier.
+  expectedAnswerShape: Supplier list with PPM defect rate
+  metricKey: ppm_defect_rate
 dataProducts:
 - key: production-performance
   name: Production Performance
@@ -310,6 +418,99 @@ starterAgents:
     metricKeys:
     - overall_equipment_effectiveness
     - unplanned_downtime_minutes
+- key: maintenance-planning-advisor
+  name: Maintenance Planning Advisor
+  summary: Shows which assets fail between services and how much work is still reactive, from certified reliability metrics.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: maintenance
+  primaryPersonaKey: maintenance-planner
+  questionKeys:
+  - q-failure-pattern
+  - q-planned-ratio
+  - q-downtime-cause
+  bindings:
+  - dataProductKey: maintenance-reliability
+    type: GROUNDS_ON
+    purpose: Asset class and work-order context frames every maintenance answer.
+    metricKeys: []
+  - dataProductKey: maintenance-reliability
+    type: QUERIES
+    purpose: Reads certified MTBF and planned maintenance ratio.
+    metricKeys:
+    - mean_time_between_failures
+    - planned_maintenance_ratio
+- key: supply-reliability-monitor
+  name: Supply Reliability Monitor
+  summary: Watches supplier delivery and customer OTIF against certified metrics, and says where the flow is breaking.
+  archetype: Monitor
+  riskTier: decision-support
+  domainKey: supply-chain
+  primaryPersonaKey: supply-chain-manager
+  questionKeys:
+  - q-supplier-late
+  - q-otif
+  - q-supplier-quality
+  bindings:
+  - dataProductKey: supply-chain-flow
+    type: GROUNDS_ON
+    purpose: Order, supplier, and customer context frames every flow answer.
+    metricKeys: []
+  - dataProductKey: supply-chain-flow
+    type: QUERIES
+    purpose: Reads certified OTIF alongside the order book.
+    metricKeys:
+    - otif_rate
+  - dataProductKey: supplier-quality
+    type: QUERIES
+    purpose: Reads certified supplier delivery and defect metrics.
+    metricKeys:
+    - supplier_on_time_delivery
+    - ppm_defect_rate
+- key: safety-signal-monitor
+  name: Safety Signal Monitor
+  summary: Tracks recordable incidents against near-miss reporting, so under-reporting reads as a signal rather than as safety.
+  archetype: Monitor
+  riskTier: informational
+  domainKey: safety
+  primaryPersonaKey: ehs-manager
+  questionKeys:
+  - q-incident-rate
+  - q-near-miss
+  - q-incident-severity
+  bindings:
+  - dataProductKey: safety-incidents
+    type: GROUNDS_ON
+    purpose: Site, shift, and incident-class context frames every safety answer.
+    metricKeys: []
+  - dataProductKey: safety-incidents
+    type: QUERIES
+    purpose: Reads certified recordable incident and near-miss rates.
+    metricKeys:
+    - recordable_incident_rate
+    - near_miss_rate
+- key: schedule-adherence-analyst
+  name: Schedule Adherence Analyst
+  summary: Explains where the schedule slips and which changeovers cost the most minutes, from certified production metrics.
+  archetype: Analyst
+  riskTier: decision-support
+  domainKey: production
+  primaryPersonaKey: production-scheduler
+  questionKeys:
+  - q-schedule-slip
+  - q-changeover-cost
+  - q-line-sequence
+  bindings:
+  - dataProductKey: capacity-and-scheduling
+    type: GROUNDS_ON
+    purpose: Line, order, and sequence context frames every scheduling answer.
+    metricKeys: []
+  - dataProductKey: capacity-and-scheduling
+    type: QUERIES
+    purpose: Reads certified schedule adherence and changeover time.
+    metricKeys:
+    - schedule_adherence
+    - changeover_time
 regulatoryConstraints:
 - key: personal-data-minimisation
   name: Personal data minimisation

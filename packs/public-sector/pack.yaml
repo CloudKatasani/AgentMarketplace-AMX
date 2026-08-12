@@ -39,6 +39,30 @@ personas:
   ownedDecisions: Which policy options are modelled and which evidence is published.
   cadence: Quarterly
   currentWorkaround: Requests bespoke extracts and reconciles definitions across teams.
+- key: payments-assurance-lead
+  name: Payments Assurance Lead
+  kind: BUSINESS
+  ownedDecisions: Which payment error causes are investigated and which recoveries are pursued.
+  cadence: Monthly
+  currentWorkaround: Samples payments manually and generalises from what the sample showed.
+- key: contact-centre-manager
+  name: Contact Centre Manager
+  kind: BUSINESS
+  ownedDecisions: Where staff are moved between channels each week.
+  cadence: Daily
+  currentWorkaround: Balances queue reports that describe yesterday.
+- key: digital-service-owner
+  name: Digital Service Owner
+  kind: BUSINESS
+  ownedDecisions: Which service journeys are rebuilt next.
+  cadence: Fortnightly
+  currentWorkaround: Reads drop-off analytics with no view of assisted-digital demand.
+- key: commercial-lead
+  name: Commercial Lead
+  kind: BUSINESS
+  ownedDecisions: Where contract routes are tightened and which suppliers are reviewed.
+  cadence: Quarterly
+  currentWorkaround: Reconciles spend across ledgers with inconsistent supplier names.
 questionLibrary:
 - key: q-backlog
   personaKey: casework-manager
@@ -68,6 +92,90 @@ questionLibrary:
   consequenceOfNoAnswer: Inequity persists because it is not routinely measured or published.
   expectedAnswerShape: Service list with equity gap and direction
   metricKey: outcome_equity_gap
+- key: q-spend-trend
+  personaKey: commercial-lead
+  text: How is category spend moving against contract?
+  intentClass: trend
+  consequenceOfNoAnswer: Spend drifts off-contract a category at a time.
+  expectedAnswerShape: Category trend with compliance
+  metricKey: contract_compliance_rate
+- key: q-demand-trend
+  personaKey: contact-centre-manager
+  text: How is contact demand trending by channel?
+  intentClass: trend
+  consequenceOfNoAnswer: Staffing is planned against last year’s shape of demand.
+  expectedAnswerShape: Channel trend with volume and wait
+  metricKey: average_wait_time
+- key: q-error-causes
+  personaKey: payments-assurance-lead
+  text: What is causing payment error in the worst scheme?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: The same error cause is corrected case by case forever.
+  expectedAnswerShape: Cause list with value at risk
+  metricKey: payment_accuracy_rate
+- key: q-payment-accuracy
+  personaKey: payments-assurance-lead
+  text: Which schemes are paying least accurately this quarter?
+  intentClass: comparison
+  consequenceOfNoAnswer: Error is discovered in an annual audit rather than in the month.
+  expectedAnswerShape: Scheme list with accuracy rate
+  metricKey: payment_accuracy_rate
+- key: q-recovery-rate
+  personaKey: payments-assurance-lead
+  text: How much identified overpayment are we actually recovering?
+  intentClass: trend
+  consequenceOfNoAnswer: Recovery targets are set against a number nobody tracks.
+  expectedAnswerShape: Recovery trend by scheme
+  metricKey: overpayment_recovery_rate
+- key: q-wait-times
+  personaKey: contact-centre-manager
+  text: Where are citizens waiting longest to be served?
+  intentClass: lookup
+  consequenceOfNoAnswer: Staff move to the loudest channel rather than the slowest.
+  expectedAnswerShape: Channel list with average wait
+  metricKey: average_wait_time
+- key: q-first-contact
+  personaKey: contact-centre-manager
+  text: Which enquiry types need a second contact most often?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: Repeat contact is counted as demand instead of as failure.
+  expectedAnswerShape: Enquiry type with resolution rate
+  metricKey: first_contact_resolution
+- key: q-digital-dropoff
+  personaKey: digital-service-owner
+  text: Which online journeys are people failing to complete?
+  intentClass: diagnosis
+  consequenceOfNoAnswer: A broken journey is rebuilt only after complaints arrive.
+  expectedAnswerShape: Journey list with completion rate
+  metricKey: digital_completion_rate
+- key: q-assisted-digital
+  personaKey: digital-service-owner
+  text: Where is assisted-digital demand highest?
+  intentClass: comparison
+  consequenceOfNoAnswer: Support is withdrawn from the people who need it most.
+  expectedAnswerShape: Service list with assisted share
+  metricKey: assisted_digital_share
+- key: q-appeal-overturn
+  personaKey: casework-manager
+  text: Which decision types are overturned most on appeal?
+  intentClass: comparison
+  consequenceOfNoAnswer: The same decision error is repeated at scale.
+  expectedAnswerShape: Decision type with overturn rate
+  metricKey: appeal_overturn_rate
+- key: q-supplier-concentration
+  personaKey: commercial-lead
+  text: Where is spend most concentrated with a single supplier?
+  intentClass: lookup
+  consequenceOfNoAnswer: Dependency is discovered when the supplier fails.
+  expectedAnswerShape: Category list with concentration
+  metricKey: supplier_concentration
+- key: q-contract-compliance
+  personaKey: commercial-lead
+  text: How much spend is going outside a compliant route?
+  intentClass: trend
+  consequenceOfNoAnswer: Off-contract spend grows quietly until an audit finds it.
+  expectedAnswerShape: Compliance trend by category
+  metricKey: contract_compliance_rate
 dataProducts:
 - key: casework-360
   name: Casework 360
@@ -303,6 +411,99 @@ starterAgents:
     metricKeys:
     - case_backlog_count
     - case_resolution_days
+- key: payment-accuracy-analyst
+  name: Payment Accuracy Analyst
+  summary: Explains which schemes pay least accurately and how much overpayment is recovered, from certified payment metrics.
+  archetype: Analyst
+  riskTier: decision-support
+  domainKey: payments-and-benefits
+  primaryPersonaKey: payments-assurance-lead
+  questionKeys:
+  - q-payment-accuracy
+  - q-recovery-rate
+  - q-error-causes
+  bindings:
+  - dataProductKey: benefit-payments
+    type: GROUNDS_ON
+    purpose: Scheme, entitlement, and payment-run context frames every answer.
+    metricKeys: []
+  - dataProductKey: benefit-payments
+    type: QUERIES
+    purpose: Reads certified payment accuracy and recovery rate.
+    metricKeys:
+    - payment_accuracy_rate
+    - overpayment_recovery_rate
+- key: contact-demand-monitor
+  name: Contact Demand Monitor
+  summary: Watches wait times and repeat contact by channel, so staffing follows where citizens are actually stuck.
+  archetype: Monitor
+  riskTier: decision-support
+  domainKey: service-delivery
+  primaryPersonaKey: contact-centre-manager
+  questionKeys:
+  - q-wait-times
+  - q-first-contact
+  - q-demand-trend
+  bindings:
+  - dataProductKey: contact-and-channels
+    type: GROUNDS_ON
+    purpose: Channel and enquiry-type context frames every demand answer.
+    metricKeys: []
+  - dataProductKey: contact-and-channels
+    type: QUERIES
+    purpose: Reads certified wait time and first-contact resolution.
+    metricKeys:
+    - average_wait_time
+    - first_contact_resolution
+- key: digital-journey-advisor
+  name: Digital Journey Advisor
+  summary: Shows which online journeys fail and where assisted-digital demand sits, from certified service metrics.
+  archetype: Advisor
+  riskTier: decision-support
+  domainKey: service-delivery
+  primaryPersonaKey: digital-service-owner
+  questionKeys:
+  - q-digital-dropoff
+  - q-assisted-digital
+  - q-appeal-overturn
+  bindings:
+  - dataProductKey: digital-services
+    type: GROUNDS_ON
+    purpose: Journey and step context frames every completion answer.
+    metricKeys: []
+  - dataProductKey: digital-services
+    type: QUERIES
+    purpose: Reads certified completion and assisted-digital metrics.
+    metricKeys:
+    - digital_completion_rate
+    - assisted_digital_share
+  - dataProductKey: appeals-and-complaints
+    type: QUERIES
+    purpose: Reads the certified overturn rate where a journey produced the decision.
+    metricKeys:
+    - appeal_overturn_rate
+- key: commercial-spend-navigator
+  name: Commercial Spend Navigator
+  summary: Points a commercial lead at concentration and off-contract spend, with the certified numbers behind each.
+  archetype: Navigator
+  riskTier: informational
+  domainKey: policy-analysis
+  primaryPersonaKey: commercial-lead
+  questionKeys:
+  - q-supplier-concentration
+  - q-contract-compliance
+  - q-spend-trend
+  bindings:
+  - dataProductKey: procurement-and-spend
+    type: GROUNDS_ON
+    purpose: Category, supplier, and contract context frames every spend answer.
+    metricKeys: []
+  - dataProductKey: procurement-and-spend
+    type: QUERIES
+    purpose: Reads certified concentration and contract compliance.
+    metricKeys:
+    - supplier_concentration
+    - contract_compliance_rate
 regulatoryConstraints:
 - key: personal-data-minimisation
   name: Personal data minimisation
